@@ -1,58 +1,145 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Mapa de Lotes con Agua</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
-    <style>
-      html, body, #map {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="map"></div>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa de Lotes Interactivo</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #map { height: 100vh; }
+    .panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+    .panel input, .panel select {
+      width: 100%;
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+    .highlight {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <input type="number" id="search" placeholder="Buscar lote por ID" />
+    <select id="filter">
+      <option value="todos">Todos</option>
+      <option value="agua">Con agua</option>
+      <option value="sinagua">Sin agua</option>
+    </select>
+    <div>Lotes mostrados: <span id="count">0</span></div>
+  </div>
+  <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-      const map = L.map("map").setView([-37.403, -68.931], 16); // Rincón de los Sauces
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map("map").setView([-37.399, -68.932], 15);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-        maxZoom: 20,
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 20,
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(map);
+
+    const urlGeoJSON = "AGUSIONO.geojson";
+    let loteLayer;
+    let loteOriginal;
+
+    const countSpan = document.getElementById("count");
+
+    function styleDefault(feature) {
+      return {
+        color: feature.properties.agua_10m === "SI" ? "green" : "red",
+        weight: 1,
+        fillOpacity: 0.4
+      };
+    }
+
+    function highlightStyle() {
+      return {
+        color: "orange",
+        weight: 3,
+        fillOpacity: 0.6
+      };
+    }
+
+    fetch(urlGeoJSON)
+      .then(res => res.json())
+      .then(data => {
+        loteOriginal = data;
+        loteLayer = L.geoJSON(data, {
+          style: styleDefault,
+          onEachFeature: function (feature, layer) {
+            layer.bindPopup(`
+              <b>Lote:</b> ${feature.properties.fid_lote}<br>
+              <b>Agua 10m:</b> ${feature.properties.agua_10m}<br>
+              <b>Agua 40m:</b> ${feature.properties.agua_40m}
+            `);
+
+            layer.on("mouseover", function () {
+              this.setStyle(highlightStyle());
+            });
+            layer.on("mouseout", function () {
+              this.setStyle(styleDefault(feature));
+            });
+          }
+        }).addTo(map);
+
+        updateCount();
+      });
+
+    function updateCount() {
+      countSpan.textContent = loteLayer.getLayers().length;
+    }
+
+    document.getElementById("filter").addEventListener("change", function () {
+      const value = this.value;
+      map.eachLayer(l => {
+        if (l !== loteLayer && l instanceof L.GeoJSON) map.removeLayer(l);
+      });
+      loteLayer = L.geoJSON(loteOriginal, {
+        filter: function (f) {
+          if (value === "agua") return f.properties.agua_10m === "SI";
+          if (value === "sinagua") return f.properties.agua_10m === "NO";
+          return true;
+        },
+        style: styleDefault,
+        onEachFeature: function (feature, layer) {
+          layer.bindPopup(`
+            <b>Lote:</b> ${feature.properties.fid_lote}<br>
+            <b>Agua 10m:</b> ${feature.properties.agua_10m}<br>
+            <b>Agua 40m:</b> ${feature.properties.agua_40m}
+          `);
+          layer.on("mouseover", function () {
+            this.setStyle(highlightStyle());
+          });
+          layer.on("mouseout", function () {
+            this.setStyle(styleDefault(feature));
+          });
+        }
       }).addTo(map);
+      updateCount();
+    });
 
-      fetch("lotes.geojson")
-        .then((response) => response.json())
-        .then((data) => {
-          L.geoJSON(data, {
-            onEachFeature: function (feature, layer) {
-              const p = feature.properties;
-              layer.bindPopup(`
-                <b>Lote:</b> ${p.fid_lote || "?"}<br>
-                <b>Agua 10m:</b> ${p.agua_10m || "?"}<br>
-                <b>Agua 40m:</b> ${p.agua_40m || "?"}
-              `);
-            },
-            style: function (feature) {
-              return {
-                color: feature.properties.agua_40m === "SI" ? "green" : "red",
-                weight: 1,
-                fillOpacity: 0.5,
-              };
-            },
-          }).addTo(map);
-        })
-        .catch((error) => {
-          alert("❌ Error al cargar lotes.geojson");
-          console.error(error);
-        });
-    </script>
-  </body>
+    document.getElementById("search").addEventListener("change", function () {
+      const id = parseInt(this.value);
+      if (!id || isNaN(id)) return;
+      loteLayer.eachLayer(layer => {
+        if (layer.feature.properties.fid_lote === id) {
+          map.fitBounds(layer.getBounds());
+          layer.openPopup();
+          layer.setStyle(highlightStyle());
+        }
+      });
+    });
+  </script>
+</body>
 </html>
