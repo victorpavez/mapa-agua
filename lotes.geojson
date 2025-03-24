@@ -1,1 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fid_lote": 1,
+        "agua_10m": "SI",
+        "agua_40m": "NO"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-68.9315, -37.4031],
+            [-68.9314, -37.4031],
+            [-68.9314, -37.4030],
+            [-68.9315, -37.4030],
+            [-68.9315, -37.4031]
+          ]
+        ]
+      }
+    }
+  ]
+}
 
