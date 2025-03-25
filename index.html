@@ -77,6 +77,13 @@
     .dot.red { background-color: #e74c3c; }
     .dot.gray { background-color: #999; }
     .dot.blue { background-color: #3498db; }
+    .highlight {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -99,11 +106,11 @@
 
     <div class="counter" id="contador"></div>
 
-    <div class="highlight" style="margin-top: 20px;">
-      <span class="dot red"></span> <strong>Sin agua y sin ID:</strong> <span id="sinAguaSinID"></span>
+    <div class="highlight">
+      <span class="dot red"></span> Sin agua y sin ID: <span id="sinAguaSinID"></span>
     </div>
     <div class="highlight">
-      <span class="dot green"></span> <strong>Con agua y sin ID:</strong> <span id="conAguaSinID"></span>
+      <span class="dot green"></span> Con agua y sin ID: <span id="conAguaSinID"></span>
     </div>
   </div>
 
@@ -132,14 +139,17 @@
       .then(data => {
         geojsonOriginal = data;
         actualizarMapa();
-      });
+      })
+      .catch(err => console.error("Error cargando GeoJSON:", err));
 
     function calcularEstadisticas(distancia, mostrarSinID) {
       let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
 
       const style = feature => {
-        const tieneID = feature.properties.id_lote !== null;
-        const agua = feature.properties[distancia] === "SI";
+        const props = feature.properties;
+        const tieneID = props.id_lote !== null && props.id_lote !== undefined;
+        const agua = props[distancia] === "SI";
+
         total++;
         if (!tieneID) sinID++;
         if (agua) {
@@ -151,18 +161,14 @@
         }
 
         const color = !tieneID && mostrarSinID ? "gray" : agua ? "green" : "red";
-
-        return {
-          color,
-          weight: 1,
-          fillOpacity: 0.5
-        };
+        return { color, weight: 1, fillOpacity: 0.5 };
       };
 
       return { total, conAgua, sinAgua, sinID, sinAguaSinID, conAguaSinID, style };
     }
 
     function actualizarMapa() {
+      if (!geojsonOriginal) return;
       if (geojsonLayer) geojsonLayer.remove();
 
       const distancia = document.getElementById("distancia").value;
@@ -182,11 +188,13 @@
         }
       }).addTo(map);
 
-      const porcentaje = ((stats.conAgua / stats.total) * 100).toFixed(1);
+      const porcentaje = stats.total > 0 ? ((stats.conAgua / stats.total) * 100).toFixed(1) : 0;
+      const porcentajeSin = stats.total > 0 ? (100 - porcentaje).toFixed(1) : 0;
+
       document.getElementById("contador").innerHTML = `
         <strong>Total lotes:</strong> ${stats.total}<br>
         <strong>Con agua:</strong> ${stats.conAgua} (${porcentaje}%)<br>
-        <strong>Sin agua:</strong> ${stats.sinAgua} (${(100 - porcentaje).toFixed(1)}%)<br>
+        <strong>Sin agua:</strong> ${stats.sinAgua} (${porcentajeSin}%)<br>
         <strong>Sin ID:</strong> ${stats.sinID}
       `;
       document.getElementById("sinAguaSinID").textContent = stats.sinAguaSinID;
