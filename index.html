@@ -14,69 +14,87 @@
       top: 10px;
       left: 10px;
       background: white;
-      padding: 14px;
+      padding: 18px;
       z-index: 1000;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
       font-family: 'Segoe UI', sans-serif;
-      border-radius: 8px;
-      width: 260px;
+      border-radius: 12px;
+      width: 280px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .controls label {
+      display: block;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+    .controls select, .controls input[type=checkbox] {
+      margin-top: 5px;
+      margin-bottom: 10px;
+    }
+    .counter {
+      margin-top: 12px;
       font-size: 14px;
     }
-    .controls select, .controls input, .controls button {
-      width: 100%;
+    .counter strong {
+      display: block;
       margin-top: 6px;
-      padding: 6px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      font-size: 14px;
     }
-    .controls button {
-      background-color: #007bff;
-      color: white;
+    .counter .highlight {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
       font-weight: bold;
-      cursor: pointer;
     }
-    .controls button:hover {
-      background-color: #0056b3;
+    .dot {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+      border-radius: 3px;
+      border: 1px solid #333;
     }
+    .dot.green { background-color: #2ecc71; }
+    .dot.red { background-color: #e74c3c; }
+    .dot.gray { background-color: #999; }
+    .dot.blue { background-color: #3498db; }
     .legend {
       position: absolute;
       bottom: 10px;
       right: 10px;
       background: white;
-      padding: 10px;
+      padding: 12px;
       font-size: 13px;
-      border-radius: 6px;
+      border-radius: 10px;
       box-shadow: 0 0 8px rgba(0,0,0,0.2);
       z-index: 999;
+      line-height: 1.6;
     }
     .legend div {
       display: flex;
       align-items: center;
-      margin-top: 4px;
+      gap: 6px;
     }
     .legend-color {
-      width: 16px;
-      height: 16px;
-      margin-right: 8px;
-      border: 1px solid #000;
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+      border: 1px solid #333;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div class="controls">
-    <label for="distancia">💧 Mostrar agua según:</label>
+    <label>💧 Mostrar agua según:</label>
     <select id="distancia" onchange="actualizarMapa()">
       <option value="agua_40m">Distancia 40m</option>
       <option value="agua_10m">Distancia 10m</option>
     </select>
 
-    <label for="mostrarSinID">🎚️ Mostrar lotes sin ID en gris:</label>
-    <input type="checkbox" id="mostrarSinID" checked onchange="actualizarMapa()" />
+    <label><input type="checkbox" id="mostrarSinID" checked onchange="actualizarMapa()" /> 🎚️ Mostrar lotes sin ID en gris</label>
 
-    <label for="mostrarCapaAgua">🚰 Mostrar cañería de agua:</label>
-    <input type="checkbox" id="mostrarCapaAgua" onchange="toggleCapaAgua()" />
+    <label><input type="checkbox" id="mostrarCapaAgua" onchange="toggleCapaAgua()" checked /> 🚰 Mostrar cañería de agua</label>
 
     <div class="counter" id="contador"></div>
   </div>
@@ -152,12 +170,12 @@
 
       const porcentaje = ((conAgua / total) * 100).toFixed(1);
       document.getElementById("contador").innerHTML = `
-        <strong>Total lotes:</strong> ${total}<br>
-        <strong>Con agua:</strong> ${conAgua} (${porcentaje}%)<br>
-        <strong>Sin agua:</strong> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)<br>
-        <strong>Sin ID:</strong> ${sinID}<br>
-        <strong>🔴 Sin agua y sin ID:</strong> ${sinAguaSinID}<br>
-        <strong>🟢 Con agua y sin ID:</strong> ${conAguaSinID}
+        <strong>Total lotes:</strong> ${total}
+        <strong>Con agua:</strong> ${conAgua} (${porcentaje}%)
+        <strong>Sin agua:</strong> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)
+        <strong>Sin ID:</strong> ${sinID}
+        <div class="highlight"><span class="dot red"></span> Sin agua y sin ID: ${sinAguaSinID}</div>
+        <div class="highlight"><span class="dot green"></span> Con agua y sin ID: ${conAguaSinID}</div>
       `;
     }
 
