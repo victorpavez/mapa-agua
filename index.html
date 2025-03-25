@@ -14,29 +14,50 @@
       top: 10px;
       left: 10px;
       background: white;
-      padding: 10px;
+      padding: 12px 16px;
       z-index: 1000;
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
-      font-family: sans-serif;
-      width: 220px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      font-family: 'Segoe UI', sans-serif;
+      border-radius: 8px;
+      width: 240px;
+      font-size: 14px;
+    }
+    .controls input {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .controls button {
+      width: 100%;
+      padding: 6px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .controls button:hover {
+      background-color: #0056b3;
     }
     .counter {
       margin-top: 10px;
-      font-size: 14px;
+      line-height: 1.6;
     }
     .legend {
-      margin-top: 10px;
-      font-size: 13px;
+      margin-top: 12px;
     }
     .legend div {
       display: flex;
       align-items: center;
-      margin-bottom: 4px;
+      margin-top: 4px;
     }
     .legend-color {
-      width: 14px;
-      height: 14px;
-      margin-right: 6px;
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
       border: 1px solid #000;
     }
   </style>
@@ -76,9 +97,9 @@
         const porcentaje = ((conectados / total) * 100).toFixed(1);
 
         document.getElementById("contador").innerHTML = `
-          <b>Total lotes:</b> ${total}<br>
-          <b>Con agua:</b> ${conectados} (${porcentaje}%)<br>
-          <b>Sin agua:</b> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)
+          <strong>Total lotes:</strong> ${total}<br>
+          <strong>Con agua:</strong> ${conectados} (${porcentaje}%)<br>
+          <strong>Sin agua:</strong> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)
         `;
 
         geojsonLayer = L.geoJSON(data, {
