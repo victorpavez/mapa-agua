@@ -121,6 +121,12 @@
     }).addTo(map);
 
     let geojsonOriginal, geojsonLayer, capaAgua;
+    let distanciaSeleccionada = "agua_40m";
+
+    document.getElementById("distancia").addEventListener("change", () => {
+      distanciaSeleccionada = document.getElementById("distancia").value;
+      actualizarMapa();
+    });
 
     fetch("AGUSIONO.geojson")
       .then(res => res.json())
@@ -133,54 +139,61 @@
         console.error(err);
       });
 
+    function calcularEstadisticas(mostrarSinID) {
+      let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
+
+      const style = feature => {
+        const tieneID = feature.properties.id_lote !== null;
+        const agua = feature.properties[distanciaSeleccionada] === "SI";
+        total++;
+        if (!tieneID) sinID++;
+        if (agua) {
+          conAgua++;
+          if (!tieneID) conAguaSinID++;
+        } else {
+          sinAgua++;
+          if (!tieneID) sinAguaSinID++;
+        }
+
+        const color = !tieneID && mostrarSinID ? "gray" : agua ? "green" : "red";
+
+        return {
+          color,
+          weight: 1,
+          fillOpacity: 0.5
+        };
+      };
+
+      return { total, conAgua, sinAgua, sinID, sinAguaSinID, conAguaSinID, style };
+    }
+
     function actualizarMapa() {
       if (geojsonLayer) geojsonLayer.remove();
 
-      const distancia = document.getElementById("distancia").value;
       const mostrarSinID = document.getElementById("mostrarSinID").checked;
-      let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
+      const stats = calcularEstadisticas(mostrarSinID);
 
       geojsonLayer = L.geoJSON(geojsonOriginal, {
-        style: feature => {
-          const tieneID = feature.properties.id_lote !== null;
-          const agua = feature.properties[distancia] === "SI";
-          total++;
-          if (!tieneID) sinID++;
-          if (agua) {
-            conAgua++;
-            if (!tieneID) conAguaSinID++;
-          } else {
-            sinAgua++;
-            if (!tieneID) sinAguaSinID++;
-          }
-
-          const color = !tieneID && mostrarSinID ? "gray" : agua ? "green" : "red";
-
-          return {
-            color,
-            weight: 1,
-            fillOpacity: 0.5
-          };
-        },
+        style: stats.style,
         onEachFeature: (feature, layer) => {
           const p = feature.properties;
           layer.bindPopup(`
             🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
-            🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
-            🏘️ <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
-            💧 <b>Agua (${distancia}):</b> ${p[distancia] ?? "-"}
+            🏽️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
+            🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
+            💧 <b>Agua (${distanciaSeleccionada}):</b> ${p[distanciaSeleccionada] ?? "-"}
           `);
         }
       }).addTo(map);
 
-      const porcentaje = ((conAgua / total) * 100).toFixed(1);
+      const porcentaje = ((stats.conAgua / stats.total) * 100).toFixed(1);
       document.getElementById("contador").innerHTML = `
-        <strong>Total lotes:</strong> ${total}
-        <strong>Con agua:</strong> ${conAgua} (${porcentaje}%)
-        <strong>Sin agua:</strong> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)
-        <strong>Sin ID:</strong> ${sinID}
-        <div class="highlight"><span class="dot red"></span> Sin agua y sin ID: ${sinAguaSinID}</div>
-        <div class="highlight"><span class="dot green"></span> Con agua y sin ID: ${conAguaSinID}</div>
+        <strong>Total lotes:</strong> ${stats.total}
+        <strong>Con agua:</strong> ${stats.conAgua} (${porcentaje}%)
+        <strong>Sin agua:</strong> ${stats.sinAgua} (${(100 - porcentaje).toFixed(1)}%)
+        <strong>Sin ID:</strong> ${stats.sinID}
+        <div class="highlight"><span class="dot red"></span> Sin agua y sin ID: ${stats.sinAguaSinID}</div>
+        <div class="highlight"><span class="dot green"></span> Con agua y sin ID: ${stats.conAguaSinID}</div>
       `;
     }
 
