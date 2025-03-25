@@ -28,9 +28,12 @@
       margin-top: 10px;
       font-weight: 600;
     }
-    .controls select, .controls input[type=checkbox] {
+    .controls select, .controls input[type=checkbox], .controls input[type=text] {
       margin-top: 5px;
       margin-bottom: 10px;
+      width: 100%;
+      padding: 4px;
+      box-sizing: border-box;
     }
     .counter {
       margin-top: 12px;
@@ -46,9 +49,6 @@
       gap: 6px;
       margin-top: 10px;
       font-weight: bold;
-    }
-    .highlight + .highlight {
-      margin-top: 10px;
     }
     .dot {
       width: 14px;
@@ -89,6 +89,8 @@
 <body>
   <div id="map"></div>
   <div class="controls">
+    <input type="text" id="busqueda" placeholder="🔍 Buscar ID, número o manzana" oninput="buscarLote()" />
+
     <label>💧 Mostrar agua según:</label>
     <select id="distancia" onchange="actualizarMapa()">
       <option value="agua_40m">Distancia 40m</option>
@@ -199,6 +201,24 @@
         capaAgua.remove();
         capaAgua = null;
       }
+    }
+
+    function buscarLote() {
+      const texto = document.getElementById("busqueda").value.toLowerCase();
+      geojsonLayer.eachLayer(layer => {
+        const props = layer.feature.properties;
+        const coincide =
+          props.id_lote?.toString().toLowerCase().includes(texto) ||
+          props.numero_lote?.toString().toLowerCase().includes(texto) ||
+          props.id_manzana?.toString().toLowerCase().includes(texto);
+
+        if (texto && coincide) {
+          layer.setStyle({ weight: 3, color: "orange" });
+          layer.openPopup();
+        } else {
+          geojsonLayer.resetStyle(layer);
+        }
+      });
     }
   </script>
 </body>
