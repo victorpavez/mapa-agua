@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa Interactivo - AGUSIONO</title>
+  <title>Mapa de Lotes - Agua</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -14,40 +14,33 @@
       top: 10px;
       left: 10px;
       background: white;
-      padding: 12px 16px;
+      padding: 14px;
       z-index: 1000;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       font-family: 'Segoe UI', sans-serif;
       border-radius: 8px;
-      width: 240px;
+      width: 260px;
       font-size: 14px;
     }
-    .controls input {
+    .controls select, .controls input, .controls button {
       width: 100%;
+      margin-top: 6px;
       padding: 6px;
-      margin-bottom: 8px;
-      border: 1px solid #ccc;
       border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 14px;
     }
     .controls button {
-      width: 100%;
-      padding: 6px;
       background-color: #007bff;
       color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
       font-weight: bold;
+      cursor: pointer;
     }
     .controls button:hover {
       background-color: #0056b3;
     }
-    .counter {
-      margin-top: 10px;
-      line-height: 1.6;
-    }
-    .legend {
-      margin-top: 12px;
+    .legend, .counter {
+      margin-top: 14px;
     }
     .legend div {
       display: flex;
@@ -65,85 +58,89 @@
 <body>
   <div id="map"></div>
   <div class="controls">
-    🔍 <input type="number" id="loteInput" placeholder="Buscar ID de lote" />
-    <button onclick="buscarLote()">Buscar</button>
+    <label for="distancia">💧 Mostrar agua según:</label>
+    <select id="distancia" onchange="actualizarMapa()">
+      <option value="agua_40m">Distancia 40m</option>
+      <option value="agua_10m">Distancia 10m</option>
+    </select>
+
     <div class="counter" id="contador"></div>
+
     <div class="legend">
       <strong>Leyenda:</strong>
-      <div><div class="legend-color" style="background: green;"></div> Con agua (40m = SI)</div>
-      <div><div class="legend-color" style="background: red;"></div> Sin agua (40m = NO)</div>
+      <div><div class="legend-color" style="background: green;"></div> Con agua</div>
+      <div><div class="legend-color" style="background: red;"></div> Sin agua</div>
+      <div><div class="legend-color" style="background: gray;"></div> Sin ID</div>
     </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const map = L.map("map").setView([-37.403, -68.931], 16);
-
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors",
       maxZoom: 20,
     }).addTo(map);
 
-    let geojsonLayer;
-    let lotesData;
+    let geojsonOriginal, geojsonLayer;
 
     fetch("AGUSIONO.geojson")
-      .then((res) => res.json())
-      .then((data) => {
-        lotesData = data;
-        const total = data.features.length;
-        const conectados = data.features.filter(f => f.properties.agua_40m === "SI").length;
-        const sinAgua = total - conectados;
-        const porcentaje = ((conectados / total) * 100).toFixed(1);
-
-        document.getElementById("contador").innerHTML = `
-          <strong>Total lotes:</strong> ${total}<br>
-          <strong>Con agua:</strong> ${conectados} (${porcentaje}%)<br>
-          <strong>Sin agua:</strong> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)
-        `;
-
-        geojsonLayer = L.geoJSON(data, {
-          onEachFeature: function (feature, layer) {
-            const p = feature.properties;
-            layer.bindPopup(`
-              <b>Lote:</b> ${p.fid_lote}<br>
-              <b>Agua 10m:</b> ${p.agua_10m}<br>
-              <b>Agua 40m:</b> ${p.agua_40m}
-            `);
-            layer.on("mouseover", () => {
-              layer.setStyle({ weight: 3, fillOpacity: 0.7 });
-            });
-            layer.on("mouseout", () => {
-              geojsonLayer.resetStyle(layer);
-            });
-          },
-          style: function (feature) {
-            return {
-              color: feature.properties.agua_40m === "SI" ? "green" : "red",
-              weight: 1,
-              fillOpacity: 0.5,
-            };
-          }
-        }).addTo(map);
+      .then(res => res.json())
+      .then(data => {
+        geojsonOriginal = data;
+        actualizarMapa();
       })
-      .catch((err) => {
+      .catch(err => {
         alert("❌ Error cargando AGUSIONO.geojson");
         console.error(err);
       });
 
-    function buscarLote() {
-      const input = document.getElementById("loteInput").value;
-      if (!input || !lotesData) return;
-      const lote = lotesData.features.find(f => f.properties.fid_lote == input);
-      if (lote) {
-        const layer = L.geoJSON(lote, {
-          style: { color: "blue", weight: 3, fillOpacity: 0.5 }
-        }).addTo(map);
-        map.fitBounds(layer.getBounds());
-        setTimeout(() => map.removeLayer(layer), 3000);
-      } else {
-        alert("Lote no encontrado.");
-      }
+    function actualizarMapa() {
+      if (geojsonLayer) geojsonLayer.remove();
+
+      const distancia = document.getElementById("distancia").value;
+      let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
+
+      geojsonLayer = L.geoJSON(geojsonOriginal, {
+        style: feature => {
+          const tieneID = feature.properties.id_lote !== null;
+          const agua = feature.properties[distancia] === "SI";
+          total++;
+          if (!tieneID) sinID++;
+          if (agua) {
+            conAgua++;
+            if (!tieneID) conAguaSinID++;
+          } else {
+            sinAgua++;
+            if (!tieneID) sinAguaSinID++;
+          }
+
+          return {
+            color: !tieneID ? "gray" : agua ? "green" : "red",
+            weight: 1,
+            fillOpacity: 0.5,
+          };
+        },
+        onEachFeature: function (feature, layer) {
+          const p = feature.properties;
+          layer.bindPopup(`
+            🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
+            🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
+            🏘️ <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
+            💧 <b>Agua (${distancia}):</b> ${p[distancia] ?? "-"}
+          `);
+        }
+      }).addTo(map);
+
+      const porcentaje = ((conAgua / total) * 100).toFixed(1);
+      document.getElementById("contador").innerHTML = `
+        <strong>Total lotes:</strong> ${total}<br>
+        <strong>Con agua:</strong> ${conAgua} (${porcentaje}%)<br>
+        <strong>Sin agua:</strong> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)<br>
+        <strong>Sin ID:</strong> ${sinID}<br>
+        <strong>🔴 Sin agua y sin ID:</strong> ${sinAguaSinID}<br>
+        <strong>🟢 Con agua y sin ID:</strong> ${conAguaSinID}
+      `;
     }
   </script>
 </body>
