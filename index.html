@@ -18,9 +18,26 @@
       z-index: 1000;
       box-shadow: 0 0 5px rgba(0,0,0,0.5);
       font-family: sans-serif;
+      width: 220px;
     }
     .counter {
       margin-top: 10px;
+      font-size: 14px;
+    }
+    .legend {
+      margin-top: 10px;
+      font-size: 13px;
+    }
+    .legend div {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      margin-right: 6px;
+      border: 1px solid #000;
     }
   </style>
 </head>
@@ -30,6 +47,11 @@
     🔍 <input type="number" id="loteInput" placeholder="Buscar ID de lote" />
     <button onclick="buscarLote()">Buscar</button>
     <div class="counter" id="contador"></div>
+    <div class="legend">
+      <strong>Leyenda:</strong>
+      <div><div class="legend-color" style="background: green;"></div> Con agua (40m = SI)</div>
+      <div><div class="legend-color" style="background: red;"></div> Sin agua (40m = NO)</div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -48,8 +70,16 @@
       .then((res) => res.json())
       .then((data) => {
         lotesData = data;
+        const total = data.features.length;
         const conectados = data.features.filter(f => f.properties.agua_40m === "SI").length;
-        document.getElementById("contador").innerText = `✅ Lotes conectados: ${conectados}`;
+        const sinAgua = total - conectados;
+        const porcentaje = ((conectados / total) * 100).toFixed(1);
+
+        document.getElementById("contador").innerHTML = `
+          <b>Total lotes:</b> ${total}<br>
+          <b>Con agua:</b> ${conectados} (${porcentaje}%)<br>
+          <b>Sin agua:</b> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)
+        `;
 
         geojsonLayer = L.geoJSON(data, {
           onEachFeature: function (feature, layer) {
