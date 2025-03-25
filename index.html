@@ -14,102 +14,64 @@
       top: 10px;
       left: 10px;
       background: white;
-      padding: 18px;
+      padding: 14px;
       z-index: 1000;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       font-family: 'Segoe UI', sans-serif;
-      border-radius: 12px;
-      width: 280px;
+      border-radius: 8px;
+      width: 260px;
       font-size: 14px;
-      line-height: 1.4;
     }
-    .controls label {
-      display: block;
-      margin-top: 10px;
-      font-weight: 600;
-    }
-    .controls select, .controls input[type=checkbox], .controls input[type=text] {
-      margin-top: 5px;
-      margin-bottom: 10px;
+    .controls select, .controls input, .controls button {
       width: 100%;
-      padding: 4px;
-      box-sizing: border-box;
-    }
-    .counter {
-      margin-top: 12px;
+      margin-top: 6px;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
       font-size: 14px;
     }
-    .counter strong {
-      display: block;
-      margin-top: 6px;
-    }
-    .counter .highlight {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 10px;
+    .controls button {
+      background-color: #007bff;
+      color: white;
       font-weight: bold;
+      cursor: pointer;
     }
-    .dot {
-      width: 14px;
-      height: 14px;
-      display: inline-block;
-      border-radius: 3px;
-      border: 1px solid #333;
+    .controls button:hover {
+      background-color: #0056b3;
     }
-    .dot.green { background-color: #2ecc71; }
-    .dot.red { background-color: #e74c3c; }
-    .dot.gray { background-color: #999; }
-    .dot.blue { background-color: #3498db; }
-    .legend {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: white;
-      padding: 12px;
-      font-size: 13px;
-      border-radius: 10px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.2);
-      z-index: 999;
-      line-height: 1.6;
+    .legend, .counter {
+      margin-top: 14px;
     }
     .legend div {
       display: flex;
       align-items: center;
-      gap: 6px;
+      margin-top: 4px;
     }
     .legend-color {
-      width: 14px;
-      height: 14px;
-      border-radius: 2px;
-      border: 1px solid #333;
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      border: 1px solid #000;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div class="controls">
-    <input type="text" id="busqueda" placeholder="🔍 Buscar ID, número o manzana" oninput="buscarLote()" />
-
-    <label>💧 Mostrar agua según:</label>
+    <label for="distancia">💧 Mostrar agua según:</label>
     <select id="distancia" onchange="actualizarMapa()">
       <option value="agua_40m">Distancia 40m</option>
       <option value="agua_10m">Distancia 10m</option>
     </select>
 
-    <label><input type="checkbox" id="mostrarSinID" checked onchange="actualizarMapa()" /> 🎚️ Mostrar lotes sin ID en gris</label>
-
-    <label><input type="checkbox" id="mostrarCapaAgua" onchange="toggleCapaAgua()" checked /> 🚰 Mostrar cañería de agua</label>
-
     <div class="counter" id="contador"></div>
-  </div>
 
-  <div class="legend">
-    <strong>Leyenda:</strong>
-    <div><div class="legend-color" style="background: green;"></div> Con agua</div>
-    <div><div class="legend-color" style="background: red;"></div> Sin agua</div>
-    <div><div class="legend-color" style="background: gray;"></div> Sin ID (opcional)</div>
-    <div><div class="legend-color" style="background: blue;"></div> Cañería de agua</div>
+    <div class="legend">
+      <strong>Leyenda:</strong>
+      <div><div class="legend-color" style="background: green;"></div> Con agua</div>
+      <div><div class="legend-color" style="background: red;"></div> Sin agua</div>
+      <div><div class="legend-color" style="background: gray;"></div> Sin ID</div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -120,7 +82,7 @@
       maxZoom: 20,
     }).addTo(map);
 
-    let geojsonOriginal, geojsonLayer, capaAgua;
+    let geojsonOriginal, geojsonLayer;
 
     fetch("AGUSIONO.geojson")
       .then(res => res.json())
@@ -133,100 +95,52 @@
         console.error(err);
       });
 
-    function calcularEstadisticas(distancia, mostrarSinID) {
-      let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
-
-      const style = feature => {
-        const tieneID = feature.properties.id_lote !== null;
-        const agua = feature.properties[distancia] === "SI";
-        total++;
-        if (!tieneID) sinID++;
-        if (agua) {
-          conAgua++;
-          if (!tieneID) conAguaSinID++;
-        } else {
-          sinAgua++;
-          if (!tieneID) sinAguaSinID++;
-        }
-
-        const color = !tieneID && mostrarSinID ? "gray" : agua ? "green" : "red";
-
-        return {
-          color,
-          weight: 1,
-          fillOpacity: 0.5
-        };
-      };
-
-      return { total, conAgua, sinAgua, sinID, sinAguaSinID, conAguaSinID, style };
-    }
-
     function actualizarMapa() {
       if (geojsonLayer) geojsonLayer.remove();
 
       const distancia = document.getElementById("distancia").value;
-      const mostrarSinID = document.getElementById("mostrarSinID").checked;
-      const stats = calcularEstadisticas(distancia, mostrarSinID);
+      let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
 
       geojsonLayer = L.geoJSON(geojsonOriginal, {
-        style: stats.style,
-        onEachFeature: (feature, layer) => {
+        style: feature => {
+          const tieneID = feature.properties.id_lote !== null;
+          const agua = feature.properties[distancia] === "SI";
+          total++;
+          if (!tieneID) sinID++;
+          if (agua) {
+            conAgua++;
+            if (!tieneID) conAguaSinID++;
+          } else {
+            sinAgua++;
+            if (!tieneID) sinAguaSinID++;
+          }
+
+          return {
+            color: !tieneID ? "gray" : agua ? "green" : "red",
+            weight: 1,
+            fillOpacity: 0.5,
+          };
+        },
+        onEachFeature: function (feature, layer) {
           const p = feature.properties;
           layer.bindPopup(`
             🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
             🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
-            🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
+            🏘️ <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
             💧 <b>Agua (${distancia}):</b> ${p[distancia] ?? "-"}
           `);
         }
       }).addTo(map);
 
-      const porcentaje = ((stats.conAgua / stats.total) * 100).toFixed(1);
+      const porcentaje = ((conAgua / total) * 100).toFixed(1);
       document.getElementById("contador").innerHTML = `
-        <strong>Total lotes:</strong> ${stats.total}
-        <strong>Con agua:</strong> ${stats.conAgua} (${porcentaje}%)
-        <strong>Sin agua:</strong> ${stats.sinAgua} (${(100 - porcentaje).toFixed(1)}%)
-        <strong>Sin ID:</strong> ${stats.sinID}
-        <div class="highlight"><span class="dot red"></span> Sin agua y sin ID: ${stats.sinAguaSinID}</div>
-        <div class="highlight"><span class="dot green"></span> Con agua y sin ID: ${stats.conAguaSinID}</div>
+        <strong>Total lotes:</strong> ${total}<br>
+        <strong>Con agua:</strong> ${conAgua} (${porcentaje}%)<br>
+        <strong>Sin agua:</strong> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)<br>
+        <strong>Sin ID:</strong> ${sinID}<br>
+        <strong>🔴 Sin agua y sin ID:</strong> ${sinAguaSinID}<br>
+        <strong>🟢 Con agua y sin ID:</strong> ${conAguaSinID}
       `;
-    }
-
-    function toggleCapaAgua() {
-      const mostrar = document.getElementById("mostrarCapaAgua").checked;
-      if (mostrar && !capaAgua) {
-        fetch("AGUACAÑERIA.geojson")
-          .then(res => res.json())
-          .then(data => {
-            capaAgua = L.geoJSON(data, {
-              style: {
-                color: "blue",
-                weight: 2
-              }
-            }).addTo(map);
-          });
-      } else if (!mostrar && capaAgua) {
-        capaAgua.remove();
-        capaAgua = null;
-      }
-    }
-
-    function buscarLote() {
-      const texto = document.getElementById("busqueda").value.toLowerCase();
-      geojsonLayer.eachLayer(layer => {
-        const props = layer.feature.properties;
-        const coincide =
-          props.id_lote?.toString().toLowerCase().includes(texto) ||
-          props.numero_lote?.toString().toLowerCase().includes(texto) ||
-          props.id_manzana?.toString().toLowerCase().includes(texto);
-
-        if (texto && coincide) {
-          layer.setStyle({ weight: 3, color: "orange" });
-          layer.openPopup();
-        } else {
-          geojsonLayer.resetStyle(layer);
-        }
-      });
     }
   </script>
 </body>
