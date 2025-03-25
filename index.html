@@ -1,59 +1,64 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Mapa de Lotes - GitHub + Leaflet</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
-    <style>
-      html, body, #map {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="map"></div>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa de Lotes - AGUSIONO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-      const map = L.map("map").setView([-37.403, -68.931], 16); // Rincón de los Sauces
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Inicia el mapa centrado en Rincón de los Sauces
+    const map = L.map("map").setView([-37.403, -68.931], 16);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-        maxZoom: 20,
-      }).addTo(map);
+    // Capa base de OpenStreetMap
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+      maxZoom: 20,
+    }).addTo(map);
 
-      // 👇 Cargamos tu archivo AGUSIONO.geojson
-      fetch("AGUSIONO.geojson")
-        .then((response) => response.json())
-        .then((data) => {
-          L.geoJSON(data, {
-            onEachFeature: function (feature, layer) {
-              const p = feature.properties;
-              layer.bindPopup(`
-                <b>Lote:</b> ${p.fid_lote || "?"}<br>
-                <b>Agua 10m:</b> ${p.agua_10m || "?"}<br>
-                <b>Agua 40m:</b> ${p.agua_40m || "?"}
-              `);
-            },
-            style: function (feature) {
-              return {
-                color: p.agua_40m === "SI" ? "green" : "red",
-                weight: 1,
-                fillOpacity: 0.5,
-              };
-            },
-          }).addTo(map);
-        })
-        .catch((error) => {
-          alert("❌ Error cargando AGUSIONO.geojson");
-          console.error(error);
-        });
-    </script>
-  </body>
+    // Carga el GeoJSON
+    fetch("AGUSIONO.geojson")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Archivo no encontrado o inválido");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        L.geoJSON(data, {
+          onEachFeature: function (feature, layer) {
+            const p = feature.properties;
+            layer.bindPopup(`
+              <b>Lote:</b> ${p.fid_lote || "?"}<br>
+              <b>Agua 10m:</b> ${p.agua_10m || "?"}<br>
+              <b>Agua 40m:</b> ${p.agua_40m || "?"}
+            `);
+          },
+          style: function (feature) {
+            const p = feature.properties;
+            return {
+              color: p.agua_40m === "SI" ? "green" : "red",
+              weight: 1,
+              fillOpacity: 0.5,
+            };
+          },
+        }).addTo(map);
+      })
+      .catch((error) => {
+        alert("❌ Error cargando AGUSIONO.geojson");
+        console.error(error);
+      });
+  </script>
+</body>
 </html>
