@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa de Lotes - Agua</title>
+  <title>Mapa Interactivo - AGUSIONO</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -14,133 +14,85 @@
       top: 10px;
       left: 10px;
       background: white;
-      padding: 14px;
+      padding: 10px;
       z-index: 1000;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-      font-family: 'Segoe UI', sans-serif;
-      border-radius: 8px;
-      width: 260px;
-      font-size: 14px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      font-family: sans-serif;
     }
-    .controls select, .controls input, .controls button {
-      width: 100%;
-      margin-top: 6px;
-      padding: 6px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      font-size: 14px;
-    }
-    .controls button {
-      background-color: #007bff;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .controls button:hover {
-      background-color: #0056b3;
-    }
-    .legend, .counter {
-      margin-top: 14px;
-    }
-    .legend div {
-      display: flex;
-      align-items: center;
-      margin-top: 4px;
-    }
-    .legend-color {
-      width: 16px;
-      height: 16px;
-      margin-right: 8px;
-      border: 1px solid #000;
+    .counter {
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div class="controls">
-    <label for="distancia">💧 Mostrar agua según:</label>
-    <select id="distancia" onchange="actualizarMapa()">
-      <option value="agua_40m">Distancia 40m</option>
-      <option value="agua_10m">Distancia 10m</option>
-    </select>
-
+    🔍 <input type="number" id="loteInput" placeholder="Buscar ID de lote" />
+    <button onclick="buscarLote()">Buscar</button>
     <div class="counter" id="contador"></div>
-
-    <div class="legend">
-      <strong>Leyenda:</strong>
-      <div><div class="legend-color" style="background: green;"></div> Con agua</div>
-      <div><div class="legend-color" style="background: red;"></div> Sin agua</div>
-      <div><div class="legend-color" style="background: gray;"></div> Sin ID</div>
-    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const map = L.map("map").setView([-37.403, -68.931], 16);
+
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors",
       maxZoom: 20,
     }).addTo(map);
 
-    let geojsonOriginal, geojsonLayer;
+    let geojsonLayer;
+    let lotesData;
 
     fetch("AGUSIONO.geojson")
-      .then(res => res.json())
-      .then(data => {
-        geojsonOriginal = data;
-        actualizarMapa();
+      .then((res) => res.json())
+      .then((data) => {
+        lotesData = data;
+        const conectados = data.features.filter(f => f.properties.agua_40m === "SI").length;
+        document.getElementById("contador").innerText = `✅ Lotes conectados: ${conectados}`;
+
+        geojsonLayer = L.geoJSON(data, {
+          onEachFeature: function (feature, layer) {
+            const p = feature.properties;
+            layer.bindPopup(`
+              <b>Lote:</b> ${p.fid_lote}<br>
+              <b>Agua 10m:</b> ${p.agua_10m}<br>
+              <b>Agua 40m:</b> ${p.agua_40m}
+            `);
+            layer.on("mouseover", () => {
+              layer.setStyle({ weight: 3, fillOpacity: 0.7 });
+            });
+            layer.on("mouseout", () => {
+              geojsonLayer.resetStyle(layer);
+            });
+          },
+          style: function (feature) {
+            return {
+              color: feature.properties.agua_40m === "SI" ? "green" : "red",
+              weight: 1,
+              fillOpacity: 0.5,
+            };
+          }
+        }).addTo(map);
       })
-      .catch(err => {
+      .catch((err) => {
         alert("❌ Error cargando AGUSIONO.geojson");
         console.error(err);
       });
 
-    function actualizarMapa() {
-      if (geojsonLayer) geojsonLayer.remove();
-
-      const distancia = document.getElementById("distancia").value;
-      let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
-
-      geojsonLayer = L.geoJSON(geojsonOriginal, {
-        style: feature => {
-          const tieneID = feature.properties.id_lote !== null;
-          const agua = feature.properties[distancia] === "SI";
-          total++;
-          if (!tieneID) sinID++;
-          if (agua) {
-            conAgua++;
-            if (!tieneID) conAguaSinID++;
-          } else {
-            sinAgua++;
-            if (!tieneID) sinAguaSinID++;
-          }
-
-          return {
-            color: !tieneID ? "gray" : agua ? "green" : "red",
-            weight: 1,
-            fillOpacity: 0.5,
-          };
-        },
-        onEachFeature: function (feature, layer) {
-          const p = feature.properties;
-          layer.bindPopup(`
-            🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
-            🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
-            🏘️ <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
-            💧 <b>Agua (${distancia}):</b> ${p[distancia] ?? "-"}
-          `);
-        }
-      }).addTo(map);
-
-      const porcentaje = ((conAgua / total) * 100).toFixed(1);
-      document.getElementById("contador").innerHTML = `
-        <strong>Total lotes:</strong> ${total}<br>
-        <strong>Con agua:</strong> ${conAgua} (${porcentaje}%)<br>
-        <strong>Sin agua:</strong> ${sinAgua} (${(100 - porcentaje).toFixed(1)}%)<br>
-        <strong>Sin ID:</strong> ${sinID}<br>
-        <strong>🔴 Sin agua y sin ID:</strong> ${sinAguaSinID}<br>
-        <strong>🟢 Con agua y sin ID:</strong> ${conAguaSinID}
-      `;
+    function buscarLote() {
+      const input = document.getElementById("loteInput").value;
+      if (!input || !lotesData) return;
+      const lote = lotesData.features.find(f => f.properties.fid_lote == input);
+      if (lote) {
+        const layer = L.geoJSON(lote, {
+          style: { color: "blue", weight: 3, fillOpacity: 0.5 }
+        }).addTo(map);
+        map.fitBounds(layer.getBounds());
+        setTimeout(() => map.removeLayer(layer), 3000);
+      } else {
+        alert("Lote no encontrado.");
+      }
     }
   </script>
 </body>
