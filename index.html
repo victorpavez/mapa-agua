@@ -82,7 +82,7 @@
 </head>
 <body>
   <div class="controls">
-    <input type="text" id="busqueda" placeholder="🔍 Buscar ID, número o manzana" oninput="buscarLote()" />
+    <input type="text" id="busqueda" placeholder="🔍 Buscar ID de lote" oninput="buscarLote()" />
 
     <label>💧 Mostrar agua según:</label>
     <select id="distancia" onchange="actualizarMapa()">
@@ -219,10 +219,7 @@
       const texto = document.getElementById("busqueda").value.toLowerCase();
       geojsonLayer.eachLayer(layer => {
         const props = layer.feature.properties;
-        const coincide =
-          props.id_lote?.toString().toLowerCase().includes(texto) ||
-          props.numero_lote?.toString().toLowerCase().includes(texto) ||
-          props.id_manzana?.toString().toLowerCase().includes(texto);
+        const coincide = props.id_lote?.toString().toLowerCase().includes(texto);
 
         if (texto && coincide) {
           layer.setStyle({ weight: 3, color: "orange" });
