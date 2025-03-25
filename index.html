@@ -154,11 +154,13 @@
         onEachFeature: (feature, layer) => {
           const p = feature.properties;
           layer.bindPopup(`
-            🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
-            🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
-            🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
-            💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}
-          `);
+              🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
+              🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
+              🗺️ <b>Barrio:</b> ${p.barrio ?? "-"}<br>
+              🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
+              💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}
+      `);
+
         }
       }).addTo(map);
 
