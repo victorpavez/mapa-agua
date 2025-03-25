@@ -35,11 +35,11 @@
           L.geoJSON(data, {
             onEachFeature: function (feature, layer) {
               const p = feature.properties;
-              layer.bindPopup(`
+              layer.bindPopup(
                 <b>Lote:</b> ${p.fid_lote || "?"}<br>
                 <b>Agua 10m:</b> ${p.agua_10m || "?"}<br>
                 <b>Agua 40m:</b> ${p.agua_40m || "?"}
-              `);
+              );
             },
             style: function (feature) {
               return {
