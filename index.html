@@ -44,6 +44,8 @@
     .bottom-stats {
       margin-top: 10px;
       font-weight: bold;
+      padding-top: 10px;
+      border-top: 1px solid #ccc;
     }
     .dot {
       display: inline-block;
@@ -60,6 +62,8 @@
 <body>
   <div class="panel">
     <div>
+      <input type="number" id="search" placeholder="Buscar lote por ID" />
+
       <label>💧 Mostrar agua según:</label>
       <select id="filter">
         <option value="todos">Todos</option>
@@ -171,6 +175,16 @@
     document.getElementById("filter").addEventListener("change", actualizarMapa);
     document.getElementById("mostrarSinID").addEventListener("change", actualizarMapa);
     document.getElementById("mostrarCapaAgua").addEventListener("change", toggleCapaAgua);
+    document.getElementById("search").addEventListener("change", function () {
+      const id = parseInt(this.value);
+      if (!id || isNaN(id)) return;
+      geojsonLayer.eachLayer(layer => {
+        if (layer.feature.properties.id_lote == id) {
+          map.fitBounds(layer.getBounds());
+          layer.openPopup();
+        }
+      });
+    });
 
     function toggleCapaAgua() {
       const mostrar = document.getElementById("mostrarCapaAgua").checked;
