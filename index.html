@@ -2,63 +2,98 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa de Lotes - AGUSIONO</title>
+  <title>Mapa Interactivo - AGUSIONO</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body, #map {
-      height: 100%;
-      margin: 0;
-      padding: 0;
+      height: 100%; margin: 0; padding: 0;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      z-index: 1000;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      font-family: sans-serif;
+    }
+    .counter {
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div class="controls">
+    🔍 <input type="number" id="loteInput" placeholder="Buscar ID de lote" />
+    <button onclick="buscarLote()">Buscar</button>
+    <div class="counter" id="contador"></div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Inicia el mapa centrado en Rincón de los Sauces
     const map = L.map("map").setView([-37.403, -68.931], 16);
 
-    // Capa base de OpenStreetMap
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors",
       maxZoom: 20,
     }).addTo(map);
 
-    // Carga el GeoJSON
+    let geojsonLayer;
+    let lotesData;
+
     fetch("AGUSIONO.geojson")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Archivo no encontrado o inválido");
-        }
-        return response.json();
-      })
+      .then((res) => res.json())
       .then((data) => {
-        L.geoJSON(data, {
+        lotesData = data;
+        const conectados = data.features.filter(f => f.properties.agua_40m === "SI").length;
+        document.getElementById("contador").innerText = `✅ Lotes conectados: ${conectados}`;
+
+        geojsonLayer = L.geoJSON(data, {
           onEachFeature: function (feature, layer) {
             const p = feature.properties;
             layer.bindPopup(`
-              <b>Lote:</b> ${p.fid_lote || "?"}<br>
-              <b>Agua 10m:</b> ${p.agua_10m || "?"}<br>
-              <b>Agua 40m:</b> ${p.agua_40m || "?"}
+              <b>Lote:</b> ${p.fid_lote}<br>
+              <b>Agua 10m:</b> ${p.agua_10m}<br>
+              <b>Agua 40m:</b> ${p.agua_40m}
             `);
+            layer.on("mouseover", () => {
+              layer.setStyle({ weight: 3, fillOpacity: 0.7 });
+            });
+            layer.on("mouseout", () => {
+              geojsonLayer.resetStyle(layer);
+            });
           },
           style: function (feature) {
-            const p = feature.properties;
             return {
-              color: p.agua_40m === "SI" ? "green" : "red",
+              color: feature.properties.agua_40m === "SI" ? "green" : "red",
               weight: 1,
               fillOpacity: 0.5,
             };
-          },
+          }
         }).addTo(map);
       })
-      .catch((error) => {
+      .catch((err) => {
         alert("❌ Error cargando AGUSIONO.geojson");
-        console.error(error);
+        console.error(err);
       });
+
+    function buscarLote() {
+      const input = document.getElementById("loteInput").value;
+      if (!input || !lotesData) return;
+      const lote = lotesData.features.find(f => f.properties.fid_lote == input);
+      if (lote) {
+        const layer = L.geoJSON(lote, {
+          style: { color: "blue", weight: 3, fillOpacity: 0.5 }
+        }).addTo(map);
+        map.fitBounds(layer.getBounds());
+        setTimeout(() => map.removeLayer(layer), 3000);
+      } else {
+        alert("Lote no encontrado.");
+      }
+    }
   </script>
 </body>
 </html>
