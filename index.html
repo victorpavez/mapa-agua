@@ -147,7 +147,7 @@
 
       const style = feature => {
         const props = feature.properties;
-        const tieneID = props.id_lote !== null && props.id_lote !== undefined;
+        const tieneID = props.id_lote !== null && props.id_lote !== undefined && props.id_lote !== "";
         const agua = props[distancia] === "SI";
 
         total++;
@@ -163,6 +163,8 @@
         const color = !tieneID && mostrarSinID ? "gray" : agua ? "green" : "red";
         return { color, weight: 1, fillOpacity: 0.5 };
       };
+
+      geojsonOriginal.features.forEach(f => style(f));
 
       return { total, conAgua, sinAgua, sinID, sinAguaSinID, conAguaSinID, style };
     }
