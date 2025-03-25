@@ -6,51 +6,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body {
+    html, body, #map {
       height: 100%; margin: 0; padding: 0;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    #map {
-      height: 100%;
-      margin-left: 300px;
     }
     .controls {
       position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      width: 280px;
+      top: 10px;
+      left: 10px;
       background: white;
       padding: 18px;
-      box-shadow: 2px 0 8px rgba(0,0,0,0.2);
       z-index: 1000;
-      overflow-y: auto;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      font-family: 'Segoe UI', sans-serif;
+      border-radius: 12px;
+      width: 280px;
+      font-size: 14px;
+      line-height: 1.4;
     }
     .controls label {
-      font-weight: 600;
       display: block;
       margin-top: 10px;
+      font-weight: 600;
     }
-    .controls input[type="text"],
-    .controls select {
-      width: 100%;
-      padding: 6px;
+    .controls select, .controls input[type=checkbox], .controls input[type=text] {
       margin-top: 5px;
       margin-bottom: 10px;
+      width: 100%;
+      padding: 4px;
       box-sizing: border-box;
+    }
+    .counter {
+      margin-top: 12px;
       font-size: 14px;
     }
-    .checkbox-inline {
+    .counter strong {
+      display: block;
+      margin-top: 6px;
+    }
+    .counter .highlight {
       display: flex;
       align-items: center;
       gap: 6px;
       margin-top: 10px;
-      font-weight: 600;
+      font-weight: bold;
     }
-    .counter {
-      margin-top: 16px;
-      font-size: 14px;
+    .dot {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+      border-radius: 3px;
+      border: 1px solid #333;
     }
+    .dot.green { background-color: #2ecc71; }
+    .dot.red { background-color: #e74c3c; }
+    .dot.gray { background-color: #999; }
+    .dot.blue { background-color: #3498db; }
     .legend {
       position: absolute;
       bottom: 10px;
@@ -68,21 +78,18 @@
       align-items: center;
       gap: 6px;
     }
-    .legend-color, .dot {
+    .legend-color {
       width: 14px;
       height: 14px;
       border-radius: 2px;
       border: 1px solid #333;
     }
-    .dot.green { background-color: #2ecc71; }
-    .dot.red { background-color: #e74c3c; }
-    .dot.gray { background-color: #999; }
-    .dot.blue { background-color: #3498db; }
   </style>
 </head>
 <body>
+  <div id="map"></div>
   <div class="controls">
-    <input type="text" id="busqueda" placeholder="🔍 Buscar ID de lote" oninput="buscarLote()" />
+    <input type="text" id="busqueda" placeholder="🔍 Buscar ID, número o manzana" oninput="buscarLote()" />
 
     <label>💧 Mostrar agua según:</label>
     <select id="distancia" onchange="actualizarMapa()">
@@ -90,27 +97,12 @@
       <option value="agua_10m">Distancia 10m</option>
     </select>
 
-    <div class="checkbox-inline">
-      <input type="checkbox" id="mostrarSinID" checked onchange="actualizarMapa()" />
-      <label for="mostrarSinID">Mostrar lotes sin ID en gris</label>
-    </div>
+    <label><input type="checkbox" id="mostrarSinID" checked onchange="actualizarMapa()" /> 🎚️ Mostrar lotes sin ID en gris</label>
 
-    <div class="checkbox-inline">
-      <input type="checkbox" id="mostrarCapaAgua" onchange="toggleCapaAgua()" checked />
-      <label for="mostrarCapaAgua">Mostrar cañería de agua</label>
-    </div>
+    <label><input type="checkbox" id="mostrarCapaAgua" onchange="toggleCapaAgua()" checked /> 🚰 Mostrar cañería de agua</label>
 
     <div class="counter" id="contador"></div>
-
-    <div class="highlight" style="margin-top: 20px;">
-      <span class="dot red"></span> <strong>Sin agua y sin ID:</strong> <span id="sinAguaSinID"></span>
-    </div>
-    <div class="highlight">
-      <span class="dot green"></span> <strong>Con agua y sin ID:</strong> <span id="conAguaSinID"></span>
-    </div>
   </div>
-
-  <div id="map"></div>
 
   <div class="legend">
     <strong>Leyenda:</strong>
@@ -135,6 +127,10 @@
       .then(data => {
         geojsonOriginal = data;
         actualizarMapa();
+      })
+      .catch(err => {
+        alert("❌ Error cargando AGUSIONO.geojson");
+        console.error(err);
       });
 
     function calcularEstadisticas(distancia, mostrarSinID) {
@@ -187,13 +183,13 @@
 
       const porcentaje = ((stats.conAgua / stats.total) * 100).toFixed(1);
       document.getElementById("contador").innerHTML = `
-        <strong>Total lotes:</strong> ${stats.total}<br>
-        <strong>Con agua:</strong> ${stats.conAgua} (${porcentaje}%)<br>
-        <strong>Sin agua:</strong> ${stats.sinAgua} (${(100 - porcentaje).toFixed(1)}%)<br>
+        <strong>Total lotes:</strong> ${stats.total}
+        <strong>Con agua:</strong> ${stats.conAgua} (${porcentaje}%)
+        <strong>Sin agua:</strong> ${stats.sinAgua} (${(100 - porcentaje).toFixed(1)}%)
         <strong>Sin ID:</strong> ${stats.sinID}
+        <div class="highlight"><span class="dot red"></span> Sin agua y sin ID: ${stats.sinAguaSinID}</div>
+        <div class="highlight"><span class="dot green"></span> Con agua y sin ID: ${stats.conAguaSinID}</div>
       `;
-      document.getElementById("sinAguaSinID").textContent = stats.sinAguaSinID;
-      document.getElementById("conAguaSinID").textContent = stats.conAguaSinID;
     }
 
     function toggleCapaAgua() {
@@ -219,7 +215,10 @@
       const texto = document.getElementById("busqueda").value.toLowerCase();
       geojsonLayer.eachLayer(layer => {
         const props = layer.feature.properties;
-        const coincide = props.id_lote?.toString().toLowerCase().includes(texto);
+        const coincide =
+          props.id_lote?.toString().toLowerCase().includes(texto) ||
+          props.numero_lote?.toString().toLowerCase().includes(texto) ||
+          props.id_manzana?.toString().toLowerCase().includes(texto);
 
         if (texto && coincide) {
           layer.setStyle({ weight: 3, color: "orange" });
