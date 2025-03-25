@@ -39,8 +39,16 @@
     .controls button:hover {
       background-color: #0056b3;
     }
-    .legend, .counter {
-      margin-top: 14px;
+    .legend {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: white;
+      padding: 10px;
+      font-size: 13px;
+      border-radius: 6px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.2);
+      z-index: 999;
     }
     .legend div {
       display: flex;
@@ -64,14 +72,21 @@
       <option value="agua_10m">Distancia 10m</option>
     </select>
 
-    <div class="counter" id="contador"></div>
+    <label for="mostrarSinID">🎚️ Mostrar lotes sin ID en gris:</label>
+    <input type="checkbox" id="mostrarSinID" checked onchange="actualizarMapa()" />
 
-    <div class="legend">
-      <strong>Leyenda:</strong>
-      <div><div class="legend-color" style="background: green;"></div> Con agua</div>
-      <div><div class="legend-color" style="background: red;"></div> Sin agua</div>
-      <div><div class="legend-color" style="background: gray;"></div> Sin ID</div>
-    </div>
+    <label for="mostrarCapaAgua">🚰 Mostrar cañería de agua:</label>
+    <input type="checkbox" id="mostrarCapaAgua" onchange="toggleCapaAgua()" />
+
+    <div class="counter" id="contador"></div>
+  </div>
+
+  <div class="legend">
+    <strong>Leyenda:</strong>
+    <div><div class="legend-color" style="background: green;"></div> Con agua</div>
+    <div><div class="legend-color" style="background: red;"></div> Sin agua</div>
+    <div><div class="legend-color" style="background: gray;"></div> Sin ID (opcional)</div>
+    <div><div class="legend-color" style="background: blue;"></div> Cañería de agua</div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -82,7 +97,7 @@
       maxZoom: 20,
     }).addTo(map);
 
-    let geojsonOriginal, geojsonLayer;
+    let geojsonOriginal, geojsonLayer, capaAgua;
 
     fetch("AGUSIONO.geojson")
       .then(res => res.json())
@@ -99,6 +114,7 @@
       if (geojsonLayer) geojsonLayer.remove();
 
       const distancia = document.getElementById("distancia").value;
+      const mostrarSinID = document.getElementById("mostrarSinID").checked;
       let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
 
       geojsonLayer = L.geoJSON(geojsonOriginal, {
@@ -115,13 +131,15 @@
             if (!tieneID) sinAguaSinID++;
           }
 
+          const color = !tieneID && mostrarSinID ? "gray" : agua ? "green" : "red";
+
           return {
-            color: !tieneID ? "gray" : agua ? "green" : "red",
+            color,
             weight: 1,
-            fillOpacity: 0.5,
+            fillOpacity: 0.5
           };
         },
-        onEachFeature: function (feature, layer) {
+        onEachFeature: (feature, layer) => {
           const p = feature.properties;
           layer.bindPopup(`
             🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
@@ -141,6 +159,25 @@
         <strong>🔴 Sin agua y sin ID:</strong> ${sinAguaSinID}<br>
         <strong>🟢 Con agua y sin ID:</strong> ${conAguaSinID}
       `;
+    }
+
+    function toggleCapaAgua() {
+      const mostrar = document.getElementById("mostrarCapaAgua").checked;
+      if (mostrar && !capaAgua) {
+        fetch("AGUACAÑERIA.geojson")
+          .then(res => res.json())
+          .then(data => {
+            capaAgua = L.geoJSON(data, {
+              style: {
+                color: "blue",
+                weight: 2
+              }
+            }).addTo(map);
+          });
+      } else if (!mostrar && capaAgua) {
+        capaAgua.remove();
+        capaAgua = null;
+      }
     }
   </script>
 </body>
