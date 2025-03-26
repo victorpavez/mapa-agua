@@ -120,6 +120,16 @@ function seleccionarLote(layer, feature) {
     geojsonLayer.resetStyle(loteSeleccionado);
   }
   loteSeleccionado = layer;
+  layer.setStyle({ weight: 3, color: 'blue' });
 
-::contentReference[oaicite:10]{index=10}
+  document.getElementById("caneriaPanel").style.display = 'block';
+}
+
+// Función para generar la cañería desde el lote seleccionado
+function generarCaneria() {
+  if (!loteSeleccionado) return;
+
+  const centroLote = loteSeleccionado.getBounds().getCenter();
+  const nodoMedioCercano = encontrarNodoMasCercano(centroLote, nod
+::contentReference[oaicite:6]{index=6}
  
