@@ -18,23 +18,31 @@ Promise.all([
   nodosAgua = agua.features.map(f => f.geometry.coordinates);
   nodosMedios = medios.features.map(f => f.geometry.coordinates);
   nodosVertices = vertices.features.map(f => f.geometry.coordinates);
-}).catch(err => console.error("Error cargando nodos:", err));
+  console.log("✅ Nodos cargados correctamente");
+}).catch(err => console.error("❌ Error cargando nodos:", err));
 
-// Cargar y mostrar los lotes desde el GeoJSON
+// Cargar lotes
 fetch("AGUSIONO.geojson")
   .then(res => res.json())
   .then(data => {
     geojsonOriginal = data;
     actualizarMapa();
-  })
-  .catch(err => console.error("Error cargando GeoJSON:", err));
+  });
 
-// Función para actualizar el mapa según los filtros y opciones seleccionadas
+// Funciones de apoyo
+function distancia(a, b) {
+  return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2);
+}
+
+function nodoMasCercano(lista, punto) {
+  return lista.reduce((min, n) => distancia(n, punto) < distancia(min, punto) ? n : min);
+}
+
+// Actualizar mapa con lotes
 function actualizarMapa() {
-  if (!geojsonOriginal) return;
   if (geojsonLayer) geojsonLayer.remove();
 
-  const distancia = "agua_40m";
+  const distanciaClave = "agua_40m";
   const mostrarSinID = document.getElementById("mostrarSinID").checked;
   const filtro = document.getElementById("filter").value;
 
@@ -42,14 +50,14 @@ function actualizarMapa() {
 
   geojsonLayer = L.geoJSON(geojsonOriginal, {
     filter: f => {
-      if (filtro === "agua") return f.properties[distancia] === "SI";
-      if (filtro === "sinagua") return f.properties[distancia] === "NO";
+      if (filtro === "agua") return f.properties[distanciaClave] === "SI";
+      if (filtro === "sinagua") return f.properties[distanciaClave] === "NO";
       return true;
     },
     style: feature => {
       const props = feature.properties;
       const tieneID = props.id_lote !== null && props.id_lote !== undefined;
-      const agua = props[distancia] === "SI";
+      const agua = props[distanciaClave] === "SI";
 
       total++;
       if (!tieneID) sinID++;
@@ -65,74 +73,90 @@ function actualizarMapa() {
       return { color, weight: 1, fillOpacity: 0.5 };
     },
     onEachFeature: (feature, layer) => {
-      const p = feature.properties;
+      const props = feature.properties;
       layer.bindPopup(`
-        🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
-        🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
-        🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
-        💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}
+        🆔 <b>ID:</b> ${props.id_lote ?? "(sin ID)"}<br>
+        🏷️ <b>Número:</b> ${props.numero_lote ?? "-"}<br>
+        🏡 <b>Manzana:</b> ${props.id_manzana ?? "-"}<br>
+        💧 <b>Agua 40m:</b> ${props.agua_40m ?? "-"}
       `);
-      layer.on('click', () => seleccionarLote(layer, feature));
+
+      layer.on("click", () => {
+        loteSeleccionado = layer.getBounds().getCenter();
+        document.getElementById("caneriaPanel").style.display = "block";
+      });
     }
   }).addTo(map);
 
-  const porcentaje = total > 0 ? ((conAgua / total) * 100).toFixed(1) : 0;
-  const porcentajeSin = total > 0 ? (100 - porcentaje).toFixed(1) : 0;
-
   document.getElementById("totalLotes").textContent = total;
-  document.getElementById("conAgua").textContent = `${conAgua} (${porcentaje}%)`;
-  document.getElementById("sinAgua").textContent = `${sinAgua} (${porcentajeSin}%)`;
+  document.getElementById("conAgua").textContent = `${conAgua} (${((conAgua / total) * 100).toFixed(1)}%)`;
+  document.getElementById("sinAgua").textContent = `${sinAgua} (${((sinAgua / total) * 100).toFixed(1)}%)`;
   document.getElementById("sinID").textContent = sinID;
   document.getElementById("sinAguaSinID").textContent = sinAguaSinID;
   document.getElementById("conAguaSinID").textContent = conAguaSinID;
 }
 
-// Función para seleccionar un lote y mostrar el panel de cañería
-function seleccionarLote(layer, feature) {
-  if (loteSeleccionado) {
-    geojsonLayer.resetStyle(loteSeleccionado);
-  }
-  loteSeleccionado = layer;
-  layer.setStyle({ weight: 3, color: 'blue' });
+// Eventos
 
-  document.getElementById("caneriaPanel").style.display = 'block';
-}
-
-// Función para generar la cañería desde el lote seleccionado
-function generarCaneria() {
-  if (!loteSeleccionado) return;
-
-  const centroLote = loteSeleccionado.getBounds().getCenter();
-  const nodoMedioCercano = encontrarNodoMasCercano(centroLote, nodosMedios);
-  const verticeCercano = encontrarNodoMasCercano(nodoMedioCercano, nodosVertices);
-  const nodoAguaCercano = encontrarNodoMasCercano(verticeCercano, nodosAgua);
-
-  const ruta = [centroLote, nodoMedioCercano, verticeCercano, nodoAguaCercano];
-  dibujarRuta(ruta);
-}
-
-// Función para encontrar el nodo más cercano a una coordenada dada
-function encontrarNodoMasCercano(coordenada, nodos) {
-  let distanciaMinima = Infinity;
-  let nodoMasCercano = null;
-  nodos.forEach(nodo => {
-    const distancia = map.distance(coordenada, L.latLng(nodo[1], nodo[0]));
-    if (distancia < distanciaMinima) {
-      distanciaMinima = distancia;
-      nodoMasCercano = L.latLng(nodo[1], nodo[0]);
+document.getElementById("filter").addEventListener("change", actualizarMapa);
+document.getElementById("mostrarSinID").addEventListener("change", actualizarMapa);
+document.getElementById("mostrarCapaAgua").addEventListener("change", toggleCapaAgua);
+document.getElementById("search").addEventListener("change", function () {
+  const id = parseInt(this.value);
+  if (!id || isNaN(id)) return;
+  geojsonLayer.eachLayer(layer => {
+    if (layer.feature.properties.id_lote == id) {
+      map.fitBounds(layer.getBounds());
+      layer.openPopup();
+      layer.setStyle({ color: "orange", weight: 3, fillOpacity: 0.7 });
     }
   });
-  return nodoMasCercano;
-}
+});
 
-// Función para dibujar la ruta de la cañería en el mapa
-function dibujarRuta(ruta) {
-  if (rutaLayer) {
-    rutaLayer.remove();
+document.getElementById("btnCaneria").addEventListener("click", () => {
+  if (!loteSeleccionado) return;
+
+  if (rutaLayer) rutaLayer.remove();
+
+  const start = nodoMasCercano(nodosMedios, [loteSeleccionado.lng, loteSeleccionado.lat]);
+  const end = nodoMasCercano(nodosAgua, [loteSeleccionado.lng, loteSeleccionado.lat]);
+
+  const pasos = [start];
+  let actual = start;
+  for (let i = 0; i < 20; i++) {
+    const next = nodoMasCercano(nodosVertices, actual);
+    if (distancia(next, end) < 0.0005) break;
+    pasos.push(next);
+    actual = next;
   }
-  rutaLayer = L.polyline(ruta, { color: 'blue', weight: 3 }).addTo(map);
-  const distanciaTotal = calcularDistancia(ruta);
-  const costoTotal = distanciaTotal * 1000; // Costo estimado por metro
-  document.getElementById("distanciaTotal").textContent = distanciaTotal
-::contentReference[oaicite:0]{index=0}
- 
+  pasos.push(end);
+
+  rutaLayer = L.polyline(pasos.map(p => [p[1], p[0]]), {
+    color: "blue", weight: 4
+  }).addTo(map);
+
+  // Calcular distancia y costo
+  let totalDist = 0;
+  for (let i = 1; i < pasos.length; i++) {
+    totalDist += distancia(pasos[i - 1], pasos[i]) * 111139; // grados -> metros
+  }
+
+  document.getElementById("distanciaTotal").textContent = totalDist.toFixed(1);
+  document.getElementById("costoTotal").textContent = Math.round(totalDist * 3000);
+});
+
+function toggleCapaAgua() {
+  const mostrar = document.getElementById("mostrarCapaAgua").checked;
+  if (mostrar && !capaAgua) {
+    fetch("AGUACAÑERIA.geojson")
+      .then(res => res.json())
+      .then(data => {
+        capaAgua = L.geoJSON(data, {
+          style: { color: "blue", weight: 2 }
+        }).addTo(map);
+      });
+  } else if (!mostrar && capaAgua) {
+    capaAgua.remove();
+    capaAgua = null;
+  }
+}
