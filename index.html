@@ -1,70 +1,59 @@
-document.getElementById("btnCaneria").addEventListener("click", () => {
-  if (!loteSeleccionado) {
-    alert("Seleccioná un lote primero.");
-    return;
-  }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa de Lotes Interactivo</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="estilos.css?v=20250326" />
+</head>
+<body>
+  <div class="panel">
+    <div>
+      <input type="number" id="search" placeholder="Buscar lote por ID" />
 
-  const puntoLote = loteSeleccionado.getBounds().getCenter();
-  const puntoXY = [puntoLote.lng, puntoLote.lat];
+      <label>💧 Mostrar agua según:</label>
+      <select id="filter">
+        <option value="todos">Todos</option>
+        <option value="agua">Con agua</option>
+        <option value="sinagua">Sin agua</option>
+      </select>
 
-  // Función auxiliar para medir distancia
-  const distancia = (a, b) =>
-    Math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2);
+      <div class="checkbox-group">
+        <label class="checkbox-inline">
+          <input type="checkbox" id="mostrarSinID" checked />
+          Mostrar lotes sin ID en gris
+        </label>
+        <label class="checkbox-inline">
+          <input type="checkbox" id="mostrarCapaAgua" checked />
+          Mostrar cañería de agua
+        </label>
+      </div>
 
-  // Busca el nodo más cercano a un punto
-  const nodoMasCercano = (nodos, punto) =>
-    nodos.reduce((min, n) =>
-      distancia(n.coords, punto) < distancia(min.coords, punto) ? n : min
-    );
+      <div class="counter">
+        <strong>Total lotes:</strong> <span id="totalLotes">0</span><br>
+        <strong>Con agua:</strong> <span id="conAgua">0 (0%)</span><br>
+        <strong>Sin agua:</strong> <span id="sinAgua">0 (0%)</span><br>
+        <strong>Sin ID:</strong> <span id="sinID">0</span>
+      </div>
+    </div>
 
-  const start = nodoMasCercano(nodosMedio, puntoXY);
-  const end = nodoMasCercano(nodosAgua, puntoXY);
+    <div class="bottom-stats">
+      <div><span class="dot red"></span> Sin agua y sin ID: <span id="sinAguaSinID">0</span></div>
+      <div><span class="dot green"></span> Con agua y sin ID: <span id="conAguaSinID">0</span></div>
+    </div>
+  </div>
 
-  // Trazar camino usando nodos vértices (simulado con búsqueda simple)
-  let pasos = [start.coords];
-  let actual = start;
-  let intentos = 0;
+  <!-- Panel de cañería -->
+  <div id="caneriaPanel" class="caneria-panel" style="display: none;">
+    <h3>📏 Trazado de cañería</h3>
+    <p><b>Distancia:</b> <span id="distanciaTotal">0</span> m</p>
+    <p><b>Costo estimado:</b> $<span id="costoTotal">0</span></p>
+    <button onclick="generarCaneria()">Hacer cañería</button>
+  </div>
 
-  while (distancia(actual.coords, end.coords) > 0.0004 && intentos < 30) {
-    const siguiente = nodoMasCercano(nodosVertices, actual.coords);
-    if (distancia(actual.coords, siguiente.coords) < 0.00005) break; // Evitar bucle
-    pasos.push(siguiente.coords);
-    actual = siguiente;
-    intentos++;
-  }
+  <div id="map"></div>
 
-  pasos.push(end.coords);
-
-  // Dibujar la línea de cañería
-  if (rutaLayer) map.removeLayer(rutaLayer);
-  rutaLayer = L.polyline([], { color: "blue", weight: 4 }).addTo(map);
-
-  let i = 0;
-  const interval = setInterval(() => {
-    if (i >= pasos.length) {
-      clearInterval(interval);
-      calcularCostoYPintar(pasos);
-      return;
-    }
-    rutaLayer.addLatLng([pasos[i][1], pasos[i][0]]);
-    i++;
-  }, 200);
-});
-
-// Calcula metros y costo estimado
-function calcularCostoYPintar(pasos) {
-  let total = 0;
-  for (let i = 0; i < pasos.length - 1; i++) {
-    total += turf.distance(
-      turf.point(pasos[i]),
-      turf.point(pasos[i + 1]),
-      { units: "kilometers" }
-    );
-  }
-
-  const metros = (total * 1000).toFixed(1);
-  const costo = (metros * 1800).toLocaleString("es-AR");
-
-  document.getElementById("distanciaTotal").textContent = metros;
-  document.getElementById("costoTotal").textContent = costo;
-}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="script.js?v=20250326"></script>
+</body>
+</html>
