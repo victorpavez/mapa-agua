@@ -10,14 +10,12 @@
   <div class="panel">
     <div>
       <input type="number" id="search" placeholder="Buscar lote por ID" />
-
       <label>💧 Mostrar agua según:</label>
       <select id="filter">
         <option value="todos">Todos</option>
         <option value="agua">Con agua</option>
         <option value="sinagua">Sin agua</option>
       </select>
-
       <div class="checkbox-group">
         <label class="checkbox-inline">
           <input type="checkbox" id="mostrarSinID" checked />
@@ -28,7 +26,6 @@
           Mostrar cañería de agua
         </label>
       </div>
-
       <div class="counter">
         <strong>Total lotes:</strong> <span id="totalLotes">0</span><br>
         <strong>Con agua:</strong> <span id="conAgua">0 (0%)</span><br>
@@ -36,19 +33,17 @@
         <strong>Sin ID:</strong> <span id="sinID">0</span>
       </div>
     </div>
-
     <div class="bottom-stats">
       <div><span class="dot red"></span> Sin agua y sin ID: <span id="sinAguaSinID">0</span></div>
       <div><span class="dot green"></span> Con agua y sin ID: <span id="conAguaSinID">0</span></div>
     </div>
   </div>
 
-  <!-- Panel de cañería -->
-  <div id="caneriaPanel" class="caneria-panel" style="display: none;">
+  <div id="caneriaPanel" class="caneria-panel" style="display:none;">
     <h3>📏 Trazado de cañería</h3>
     <p><b>Distancia:</b> <span id="distanciaTotal">0</span> m</p>
     <p><b>Costo estimado:</b> $<span id="costoTotal">0</span></p>
-    <button onclick="generarCaneria()">Hacer cañería</button>
+    <button id="hacerCaneriaBtn">Hacer cañería</button>
   </div>
 
   <div id="map"></div>
