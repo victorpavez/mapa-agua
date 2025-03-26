@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
+
 // script.js
 
 const map = L.map("map", { zoomControl: false }).setView([-37.403, -68.931], 16);
