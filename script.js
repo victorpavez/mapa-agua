@@ -25,50 +25,6 @@ Promise.all([
   fetch("NODOSAGUA.geojson").then(res => res.json()),
   fetch("NODOSVERTICES.geojson").then(res => res.json()),
 ])
-  // Visualización de nodos en el mapa
-function mostrarNodos() {
-  // Nodos medios (amarillo)
-  L.geoJSON({ type: "FeatureCollection", features: nodosMedio.map(n => ({
-    type: "Feature",
-    geometry: { type: "Point", coordinates: n.coords },
-    properties: {}
-  })) }, {
-    pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
-      radius: 3,
-      color: "orange",
-      fillOpacity: 0.7
-    })
-  }).addTo(map);
-
-  // Nodos vértice (azul)
-  L.geoJSON({ type: "FeatureCollection", features: nodosVertices.map(n => ({
-    type: "Feature",
-    geometry: { type: "Point", coordinates: n.coords },
-    properties: {}
-  })) }, {
-    pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
-      radius: 3,
-      color: "blue",
-      fillOpacity: 0.7
-    })
-  }).addTo(map);
-
-  // Nodos de agua (verde)
-  L.geoJSON({ type: "FeatureCollection", features: nodosAgua.map(n => ({
-    type: "Feature",
-    geometry: { type: "Point", coordinates: n.coords },
-    properties: {}
-  })) }, {
-    pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
-      radius: 4,
-      color: "green",
-      fillOpacity: 1
-    })
-  }).addTo(map);
-}
-console.log("✅ Nodos cargados correctamente");
-mostrarNodos();
-
   .then(([medios, aguas, vertices]) => {
     nodosMedio = medios.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
     nodosAgua = aguas.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
