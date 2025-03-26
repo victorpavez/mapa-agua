@@ -252,6 +252,20 @@
         i++;
       }, 300);
     }
+
+    Promise.all([
+  fetch("NODOSAGUA.geojson").then(res => res.json()),
+  fetch("NODOSMEDIOS.geojson").then(res => res.json()),
+  fetch("NODOSVERTICES.geojson").then(res => res.json()),
+])
+.then(([nodosAgua, nodosMedios, nodosVertices]) => {
+  console.log("✅ Nodos cargados correctamente");
+  console.log("Nodos Agua:", nodosAgua.features.length);
+  console.log("Nodos Medios:", nodosMedios.features.length);
+  console.log("Nodos Vértices:", nodosVertices.features.length);
+})
+.catch(err => console.error("❌ Error al cargar nodos:", err));
+
   </script>
 </body>
 </html>
