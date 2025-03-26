@@ -107,15 +107,31 @@
       maxZoom: 20,
     }).addTo(map);
 
-    let geojsonOriginal, geojsonLayer, capaAgua;
+    let geojsonOriginal, geojsonLayer, capaAgua, rutaLayer;
+    let nodosMedio = [], nodosAgua = [], nodosVertices = [];
+
+    async function cargarGeojson(nombre) {
+      const res = await fetch(nombre);
+      const data = await res.json();
+      return data.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+    }
 
     fetch("AGUSIONO.geojson")
       .then(res => res.json())
       .then(data => {
         geojsonOriginal = data;
         actualizarMapa();
-      })
-      .catch(err => console.error("Error cargando GeoJSON:", err));
+      });
+
+    Promise.all([
+      cargarGeojson("nodosmedio.geojson"),
+      cargarGeojson("nodosagua.geojson"),
+      cargarGeojson("NODOSVERTICES.geojson")
+    ]).then(([medio, agua, vertices]) => {
+      nodosMedio = medio;
+      nodosAgua = agua;
+      nodosVertices = vertices;
+    });
 
     function actualizarMapa() {
       if (!geojsonOriginal) return;
@@ -153,15 +169,17 @@
         },
         onEachFeature: (feature, layer) => {
           const p = feature.properties;
-         layer.bindPopup(`
-  🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
-  🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
-  🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
-  🌆 <b>Barrio:</b> ${p.barrio ?? "-"}<br>
-  💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}
-`);
+          layer.bindPopup(`
+            🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
+            🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
+            🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
+            🌐 <b>Barrio:</b> ${p.barrio ?? "-"}<br>
+            💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}
+          `);
 
-
+          layer.on("click", () => {
+            if (p.agua_40m === "NO") mostrarRutaDesde(layer.getBounds().getCenter());
+          });
         }
       }).addTo(map);
 
@@ -205,6 +223,34 @@
         capaAgua.remove();
         capaAgua = null;
       }
+    }
+
+    function mostrarRutaDesde(origen) {
+      if (rutaLayer) rutaLayer.remove();
+
+      const distancia = (a, b) => Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2);
+      const nodoMasCercano = (nodos, punto) => nodos.reduce((min, n) => distancia(n.coords, [punto.lng, punto.lat]) < distancia(min.coords, [punto.lng, punto.lat]) ? n : min);
+
+      const start = nodoMasCercano(nodosMedio, origen);
+      const end = nodoMasCercano(nodosAgua, origen);
+
+      const pasos = [start.coords];
+      let actual = start;
+      for (let i = 0; i < 10; i++) { // evitar bucle infinito
+        const next = nodoMasCercano(nodosVertices, { lat: actual.coords[1], lng: actual.coords[0] });
+        pasos.push(next.coords);
+        if (distancia(next.coords, end.coords) < 0.0005) break;
+        actual = next;
+      }
+      pasos.push(end.coords);
+
+      let i = 1;
+      rutaLayer = L.polyline([pasos[0]], { color: 'blue', weight: 4 }).addTo(map);
+      const interval = setInterval(() => {
+        if (i >= pasos.length) return clearInterval(interval);
+        rutaLayer.addLatLng([pasos[i][1], pasos[i][0]]);
+        i++;
+      }, 300);
     }
   </script>
 </body>
