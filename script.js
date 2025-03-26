@@ -1,5 +1,3 @@
-// script.js
-
 const map = L.map("map", { zoomControl: false }).setView([-37.403, -68.931], 16);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap contributors",
@@ -8,28 +6,24 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 let geojsonOriginal, geojsonLayer, capaAgua, rutaLayer;
 let nodosMedio = [], nodosAgua = [], nodosVertices = [];
-let puntoInicio = null;
 
 fetch("AGUSIONO.geojson")
   .then(res => res.json())
   .then(data => {
     geojsonOriginal = data;
     actualizarMapa();
-  })
-  .catch(err => console.error("Error cargando GeoJSON:", err));
+  });
 
 Promise.all([
   fetch("NODOSMEDIOS.geojson").then(res => res.json()),
   fetch("NODOSAGUA.geojson").then(res => res.json()),
   fetch("NODOSVERTICES.geojson").then(res => res.json()),
-])
-  .then(([medios, aguas, vertices]) => {
-    nodosMedio = medios.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-    nodosAgua = aguas.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-    nodosVertices = vertices.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-    console.log("✅ Nodos cargados correctamente");
-  })
-  .catch(err => console.error("❌ Error al cargar nodos:", err));
+]).then(([medio, agua, vertices]) => {
+  nodosMedio = medio.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+  nodosAgua = agua.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+  nodosVertices = vertices.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+  console.log("✅ Nodos cargados correctamente");
+}).catch(err => console.error("❌ Error al cargar nodos:", err));
 
 function actualizarMapa() {
   if (!geojsonOriginal) return;
@@ -71,17 +65,11 @@ function actualizarMapa() {
         🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
         🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
         🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
-        🌐 <b>Barrio:</b> ${p.barrio ?? "-"}<br>
         💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}
       `);
 
       layer.on("click", () => {
-        if (p.agua_40m === "NO") {
-          puntoInicio = layer.getBounds().getCenter();
-          document.getElementById("caneriaPanel").style.display = "block";
-          document.getElementById("distanciaTotal").textContent = "0";
-          document.getElementById("costoTotal").textContent = "0";
-        }
+        if (p.agua_40m === "NO") mostrarRutaDesde(layer.getBounds().getCenter());
       });
     }
   }).addTo(map);
@@ -128,19 +116,22 @@ function toggleCapaAgua() {
   }
 }
 
-function generarCaneria() {
-  if (!puntoInicio || nodosMedio.length === 0 || nodosAgua.length === 0) return;
-
+// === GENERAR CAÑERÍA CON NODOS ===
+function mostrarRutaDesde(origen) {
   if (rutaLayer) rutaLayer.remove();
 
   const distancia = (a, b) => Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2);
-  const nodoMasCercano = (nodos, punto) => nodos.reduce((min, n) => distancia(n.coords, [punto.lng, punto.lat]) < distancia(min.coords, [punto.lng, punto.lat]) ? n : min);
+  const nodoMasCercano = (nodos, punto) =>
+    nodos.reduce((min, n) =>
+      distancia(n.coords, [punto.lng, punto.lat]) < distancia(min.coords, [punto.lng, punto.lat]) ? n : min
+    );
 
-  const start = nodoMasCercano(nodosMedio, puntoInicio);
-  const end = nodoMasCercano(nodosAgua, puntoInicio);
+  const start = nodoMasCercano(nodosMedio, origen);
+  const end = nodoMasCercano(nodosAgua, origen);
 
   const pasos = [start.coords];
   let actual = start;
+
   for (let i = 0; i < 10; i++) {
     const next = nodoMasCercano(nodosVertices, { lat: actual.coords[1], lng: actual.coords[0] });
     pasos.push(next.coords);
@@ -149,16 +140,22 @@ function generarCaneria() {
   }
   pasos.push(end.coords);
 
-  let totalDistancia = 0;
-  for (let i = 1; i < pasos.length; i++) {
-    totalDistancia += distancia(pasos[i - 1], pasos[i]) * 111320; // aprox metros
+  // Calcular distancia total
+  let distanciaMetros = 0;
+  for (let i = 0; i < pasos.length - 1; i++) {
+    distanciaMetros += distancia(pasos[i], pasos[i + 1]) * 111320;
   }
 
-  document.getElementById("distanciaTotal").textContent = totalDistancia.toFixed(1);
-  document.getElementById("costoTotal").textContent = (totalDistancia * 1000).toFixed(0);
+  const costo = Math.round(distanciaMetros * 2500);
 
-  let i = 1;
+  // Mostrar panel lateral
+  document.getElementById("caneriaPanel").style.display = "block";
+  document.getElementById("distanciaTotal").textContent = Math.round(distanciaMetros);
+  document.getElementById("costoTotal").textContent = costo;
+
+  // Dibujar animación de la línea
   rutaLayer = L.polyline([pasos[0]], { color: 'blue', weight: 4 }).addTo(map);
+  let i = 1;
   const interval = setInterval(() => {
     if (i >= pasos.length) return clearInterval(interval);
     rutaLayer.addLatLng([pasos[i][1], pasos[i][0]]);
@@ -166,4 +163,7 @@ function generarCaneria() {
   }, 300);
 }
 
-window.generarCaneria = generarCaneria;
+// Botón para "Hacer cañería"
+document.getElementById("hacerCaneriaBtn").addEventListener("click", () => {
+  alert("✅ Cañería propuesta generada. Esto podría guardarse en base de datos o exportarse.");
+});
