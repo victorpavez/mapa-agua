@@ -39,16 +39,17 @@
     </div>
   </div>
 
-  <div id="caneriaPanel" class="caneria-panel" style="display:none;">
+  <div id="caneriaPanel" class="caneria-panel">
     <h3>📏 Trazado de cañería</h3>
     <p><b>Distancia:</b> <span id="distanciaTotal">0</span> m</p>
     <p><b>Costo estimado:</b> $<span id="costoTotal">0</span></p>
-    <button id="hacerCaneriaBtn">Hacer cañería</button>
+    <button id="btnCaneria">Hacer cañería</button>
   </div>
 
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
