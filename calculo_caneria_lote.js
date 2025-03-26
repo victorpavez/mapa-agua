@@ -1,105 +1,83 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <title>Mapa de Lotes Interactivo</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; }
-    #map { width: 100%; height: 100vh; }
-    .leaflet-control-zoom { display: none !important; }
-    .panel {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      background: white;
-      padding: 20px;
-      width: 280px;
-      box-shadow: 2px 0 8px rgba(0,0,0,0.2);
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .panel select, .panel input {
-      padding: 8px;
-      margin: 10px 0;
-      font-size: 14px;
-    }
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin: 10px 0;
-    }
-    .checkbox-inline {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .counter {
-      font-size: 14px;
-      line-height: 1.6;
-    }
-    .bottom-stats {
-      margin-top: 10px;
-      font-weight: bold;
-      padding-top: 10px;
-      border-top: 1px solid #ccc;
-    }
-    .dot {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border-radius: 4px;
-      border: 1px solid #333;
-      margin-right: 6px;
-    }
-    .dot.red { background-color: #e74c3c; }
-    .dot.green { background-color: #2ecc71; }
-  </style>
-</head>
-<body>
-  <div class="panel">
-    <div>
-      <input type="number" id="search" placeholder="Buscar lote por ID" />
+let geojsonOriginal, geojsonLayer, capaAgua, rutaLayer;
+let nodosMedio = [], nodosAgua = [], nodosVertices = [];
 
-      <label>💧 Mostrar agua según:</label>
-      <select id="filter">
-        <option value="todos">Todos</option>
-        <option value="agua">Con agua</option>
-        <option value="sinagua">Sin agua</option>
-      </select>
+// Carga nodos desde archivos GeoJSON
+async function cargarGeojson(nombre) {
+  const res = await fetch(nombre);
+  const data = await res.json();
+  return data.features.map(f => ({
+    id: f.properties.id,
+    coords: f.geometry.coordinates
+  }));
+}
 
-      <div class="checkbox-group">
-        <label class="checkbox-inline">
-          <input type="checkbox" id="mostrarSinID" checked />
-          Mostrar lotes sin ID en gris
-        </label>
-        <label class="checkbox-inline">
-          <input type="checkbox" id="mostrarCapaAgua" checked />
-          Mostrar cañería de agua
-        </label>
-      </div>
+// Cargar todos los nodos
+Promise.all([
+  cargarGeojson("NODOSMEDIOS.geojson"),
+  cargarGeojson("NODOSAGUA.geojson"),
+  cargarGeojson("NODOSVERTICES.geojson")
+])
+  .then(([medio, agua, vertices]) => {
+    nodosMedio = medio;
+    nodosAgua = agua;
+    nodosVertices = vertices;
+    console.log("✅ Nodos cargados correctamente");
+    console.log("Nodos Agua:", nodosAgua.length);
+    console.log("Nodos Medios:", nodosMedio.length);
+    console.log("Nodos Vértices:", nodosVertices.length);
+  })
+  .catch(err => console.error("❌ Error al cargar nodos:", err));
 
-      <div class="counter">
-        <strong>Total lotes:</strong> <span id="totalLotes">0</span><br>
-        <strong>Con agua:</strong> <span id="conAgua">0 (0%)</span><br>
-        <strong>Sin agua:</strong> <span id="sinAgua">0 (0%)</span><br>
-        <strong>Sin ID:</strong> <span id="sinID">0</span>
-      </div>
-    </div>
+// Distancia euclidiana
+function distancia(a, b) {
+  return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2);
+}
 
-    <div class="bottom-stats">
-      <div><span class="dot red"></span> Sin agua y sin ID: <span id="sinAguaSinID">0</span></div>
-      <div><span class="dot green"></span> Con agua y sin ID: <span id="conAguaSinID">0</span></div>
-    </div>
-  </div>
+// Encontrar nodo más cercano a un punto
+function nodoMasCercano(nodos, punto) {
+  if (!nodos.length) return null;
+  return nodos.reduce((min, nodo) =>
+    distancia(nodo.coords, [punto.lng, punto.lat]) < distancia(min.coords, [punto.lng, punto.lat]) ? nodo : min
+  );
+}
 
-  <div id="map"></div>
+// Mostrar la ruta desde un lote a la red de agua
+function mostrarRutaDesde(origen) {
+  if (!nodosMedio.length || !nodosAgua.length || !nodosVertices.length) {
+    alert("⚠️ Nodos no cargados todavía.");
+    return;
+  }
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="calculo_caneria_lote.js"></script>
-</body>
-</html>
+  if (rutaLayer) rutaLayer.remove();
+
+  const start = nodoMasCercano(nodosMedio, origen);
+  const end = nodoMasCercano(nodosAgua, origen);
+  if (!start || !end) {
+    alert("❌ No se pudo determinar el nodo más cercano.");
+    return;
+  }
+
+  const pasos = [start.coords];
+  let actual = start;
+
+  // Bucle simple (mejorable con A*)
+  for (let i = 0; i < 10; i++) {
+    const next = nodoMasCercano(nodosVertices, {
+      lat: actual.coords[1],
+      lng: actual.coords[0]
+    });
+    if (!next) break;
+    pasos.push(next.coords);
+    if (distancia(next.coords, end.coords) < 0.0005) break;
+    actual = next;
+  }
+  pasos.push(end.coords);
+
+  let i = 1;
+  rutaLayer = L.polyline([pasos[0]], { color: "blue", weight: 4 }).addTo(map);
+  const interval = setInterval(() => {
+    if (i >= pasos.length) return clearInterval(interval);
+    rutaLayer.addLatLng([pasos[i][1], pasos[i][0]]);
+    i++;
+  }, 300);
+}
