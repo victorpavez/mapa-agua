@@ -8,6 +8,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 let geojsonOriginal, geojsonLayer, capaAgua, rutaLayer;
 let nodosMedio = [], nodosAgua = [], nodosVertices = [];
+let puntoInicio = null;
 
 fetch("AGUSIONO.geojson")
   .then(res => res.json())
@@ -21,12 +22,14 @@ Promise.all([
   fetch("NODOSMEDIOS.geojson").then(res => res.json()),
   fetch("NODOSAGUA.geojson").then(res => res.json()),
   fetch("NODOSVERTICES.geojson").then(res => res.json()),
-]).then(([medios, aguas, vertices]) => {
-  nodosMedio = medios.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-  nodosAgua = aguas.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-  nodosVertices = vertices.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-  console.log("✅ Nodos cargados correctamente");
-});
+])
+  .then(([medios, aguas, vertices]) => {
+    nodosMedio = medios.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+    nodosAgua = aguas.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+    nodosVertices = vertices.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+    console.log("✅ Nodos cargados correctamente");
+  })
+  .catch(err => console.error("❌ Error al cargar nodos:", err));
 
 function actualizarMapa() {
   if (!geojsonOriginal) return;
@@ -64,15 +67,21 @@ function actualizarMapa() {
     },
     onEachFeature: (feature, layer) => {
       const p = feature.properties;
-      layer.bindPopup(
-        `🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
+      layer.bindPopup(`
+        🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
         🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
         🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
-        💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}`
-      );
+        🌐 <b>Barrio:</b> ${p.barrio ?? "-"}<br>
+        💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}
+      `);
 
       layer.on("click", () => {
-        if (p.agua_40m === "NO") mostrarRutaDesde(layer.getBounds().getCenter());
+        if (p.agua_40m === "NO") {
+          puntoInicio = layer.getBounds().getCenter();
+          document.getElementById("caneriaPanel").style.display = "block";
+          document.getElementById("distanciaTotal").textContent = "0";
+          document.getElementById("costoTotal").textContent = "0";
+        }
       });
     }
   }).addTo(map);
@@ -87,6 +96,21 @@ function actualizarMapa() {
   document.getElementById("sinAguaSinID").textContent = sinAguaSinID;
   document.getElementById("conAguaSinID").textContent = conAguaSinID;
 }
+
+document.getElementById("filter").addEventListener("change", actualizarMapa);
+document.getElementById("mostrarSinID").addEventListener("change", actualizarMapa);
+document.getElementById("mostrarCapaAgua").addEventListener("change", toggleCapaAgua);
+document.getElementById("search").addEventListener("change", function () {
+  const id = parseInt(this.value);
+  if (!id || isNaN(id)) return;
+  geojsonLayer.eachLayer(layer => {
+    if (layer.feature.properties.id_lote == id) {
+      map.fitBounds(layer.getBounds());
+      layer.openPopup();
+      layer.setStyle({ color: "orange", weight: 3, fillOpacity: 0.7 });
+    }
+  });
+});
 
 function toggleCapaAgua() {
   const mostrar = document.getElementById("mostrarCapaAgua").checked;
@@ -104,17 +128,42 @@ function toggleCapaAgua() {
   }
 }
 
-document.getElementById("filter").addEventListener("change", actualizarMapa);
-document.getElementById("mostrarSinID").addEventListener("change", actualizarMapa);
-document.getElementById("mostrarCapaAgua").addEventListener("change", toggleCapaAgua);
-document.getElementById("search").addEventListener("change", function () {
-  const id = parseInt(this.value);
-  if (!id || isNaN(id)) return;
-  geojsonLayer.eachLayer(layer => {
-    if (layer.feature.properties.id_lote == id) {
-      map.fitBounds(layer.getBounds());
-      layer.openPopup();
-      layer.setStyle({ color: "orange", weight: 3, fillOpacity: 0.7 });
-    }
-  });
-});
+function generarCaneria() {
+  if (!puntoInicio || nodosMedio.length === 0 || nodosAgua.length === 0) return;
+
+  if (rutaLayer) rutaLayer.remove();
+
+  const distancia = (a, b) => Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2);
+  const nodoMasCercano = (nodos, punto) => nodos.reduce((min, n) => distancia(n.coords, [punto.lng, punto.lat]) < distancia(min.coords, [punto.lng, punto.lat]) ? n : min);
+
+  const start = nodoMasCercano(nodosMedio, puntoInicio);
+  const end = nodoMasCercano(nodosAgua, puntoInicio);
+
+  const pasos = [start.coords];
+  let actual = start;
+  for (let i = 0; i < 10; i++) {
+    const next = nodoMasCercano(nodosVertices, { lat: actual.coords[1], lng: actual.coords[0] });
+    pasos.push(next.coords);
+    if (distancia(next.coords, end.coords) < 0.0005) break;
+    actual = next;
+  }
+  pasos.push(end.coords);
+
+  let totalDistancia = 0;
+  for (let i = 1; i < pasos.length; i++) {
+    totalDistancia += distancia(pasos[i - 1], pasos[i]) * 111320; // aprox metros
+  }
+
+  document.getElementById("distanciaTotal").textContent = totalDistancia.toFixed(1);
+  document.getElementById("costoTotal").textContent = (totalDistancia * 1000).toFixed(0);
+
+  let i = 1;
+  rutaLayer = L.polyline([pasos[0]], { color: 'blue', weight: 4 }).addTo(map);
+  const interval = setInterval(() => {
+    if (i >= pasos.length) return clearInterval(interval);
+    rutaLayer.addLatLng([pasos[i][1], pasos[i][0]]);
+    i++;
+  }, 300);
+}
+
+window.generarCaneria = generarCaneria;
