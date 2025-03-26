@@ -1,169 +1,70 @@
-const map = L.map("map", { zoomControl: false }).setView([-37.403, -68.931], 16);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap contributors",
-  maxZoom: 20,
-}).addTo(map);
-
-let geojsonOriginal, geojsonLayer, capaAgua, rutaLayer;
-let nodosMedio = [], nodosAgua = [], nodosVertices = [];
-
-fetch("AGUSIONO.geojson")
-  .then(res => res.json())
-  .then(data => {
-    geojsonOriginal = data;
-    actualizarMapa();
-  });
-
-Promise.all([
-  fetch("NODOSMEDIOS.geojson").then(res => res.json()),
-  fetch("NODOSAGUA.geojson").then(res => res.json()),
-  fetch("NODOSVERTICES.geojson").then(res => res.json()),
-]).then(([medio, agua, vertices]) => {
-  nodosMedio = medio.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-  nodosAgua = agua.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-  nodosVertices = vertices.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-  console.log("✅ Nodos cargados correctamente");
-}).catch(err => console.error("❌ Error al cargar nodos:", err));
-
-function actualizarMapa() {
-  if (!geojsonOriginal) return;
-  if (geojsonLayer) geojsonLayer.remove();
-
-  const distancia = "agua_40m";
-  const mostrarSinID = document.getElementById("mostrarSinID").checked;
-  const filtro = document.getElementById("filter").value;
-
-  let total = 0, conAgua = 0, sinAgua = 0, sinID = 0, sinAguaSinID = 0, conAguaSinID = 0;
-
-  geojsonLayer = L.geoJSON(geojsonOriginal, {
-    filter: f => {
-      if (filtro === "agua") return f.properties[distancia] === "SI";
-      if (filtro === "sinagua") return f.properties[distancia] === "NO";
-      return true;
-    },
-    style: feature => {
-      const props = feature.properties;
-      const tieneID = props.id_lote !== null && props.id_lote !== undefined;
-      const agua = props[distancia] === "SI";
-
-      total++;
-      if (!tieneID) sinID++;
-      if (agua) {
-        conAgua++;
-        if (!tieneID) conAguaSinID++;
-      } else {
-        sinAgua++;
-        if (!tieneID) sinAguaSinID++;
-      }
-
-      const color = !tieneID && mostrarSinID ? "gray" : agua ? "green" : "red";
-      return { color, weight: 1, fillOpacity: 0.5 };
-    },
-    onEachFeature: (feature, layer) => {
-      const p = feature.properties;
-      layer.bindPopup(`
-        🆔 <b>ID:</b> ${p.id_lote ?? "(sin ID)"}<br>
-        🏷️ <b>Número:</b> ${p.numero_lote ?? "-"}<br>
-        🏡 <b>Manzana:</b> ${p.id_manzana ?? "-"}<br>
-        💧 <b>Agua 40m:</b> ${p.agua_40m ?? "-"}
-      `);
-
-      layer.on("click", () => {
-        if (p.agua_40m === "NO") mostrarRutaDesde(layer.getBounds().getCenter());
-      });
-    }
-  }).addTo(map);
-
-  const porcentaje = total > 0 ? ((conAgua / total) * 100).toFixed(1) : 0;
-  const porcentajeSin = total > 0 ? (100 - porcentaje).toFixed(1) : 0;
-
-  document.getElementById("totalLotes").textContent = total;
-  document.getElementById("conAgua").textContent = `${conAgua} (${porcentaje}%)`;
-  document.getElementById("sinAgua").textContent = `${sinAgua} (${porcentajeSin}%)`;
-  document.getElementById("sinID").textContent = sinID;
-  document.getElementById("sinAguaSinID").textContent = sinAguaSinID;
-  document.getElementById("conAguaSinID").textContent = conAguaSinID;
-}
-
-document.getElementById("filter").addEventListener("change", actualizarMapa);
-document.getElementById("mostrarSinID").addEventListener("change", actualizarMapa);
-document.getElementById("mostrarCapaAgua").addEventListener("change", toggleCapaAgua);
-document.getElementById("search").addEventListener("change", function () {
-  const id = parseInt(this.value);
-  if (!id || isNaN(id)) return;
-  geojsonLayer.eachLayer(layer => {
-    if (layer.feature.properties.id_lote == id) {
-      map.fitBounds(layer.getBounds());
-      layer.openPopup();
-      layer.setStyle({ color: "orange", weight: 3, fillOpacity: 0.7 });
-    }
-  });
-});
-
-function toggleCapaAgua() {
-  const mostrar = document.getElementById("mostrarCapaAgua").checked;
-  if (mostrar && !capaAgua) {
-    fetch("AGUACAÑERIA.geojson")
-      .then(res => res.json())
-      .then(data => {
-        capaAgua = L.geoJSON(data, {
-          style: { color: "blue", weight: 2 }
-        }).addTo(map);
-      });
-  } else if (!mostrar && capaAgua) {
-    capaAgua.remove();
-    capaAgua = null;
+document.getElementById("btnCaneria").addEventListener("click", () => {
+  if (!loteSeleccionado) {
+    alert("Seleccioná un lote primero.");
+    return;
   }
-}
 
-// === GENERAR CAÑERÍA CON NODOS ===
-function mostrarRutaDesde(origen) {
-  if (rutaLayer) rutaLayer.remove();
+  const puntoLote = loteSeleccionado.getBounds().getCenter();
+  const puntoXY = [puntoLote.lng, puntoLote.lat];
 
-  const distancia = (a, b) => Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2);
+  // Función auxiliar para medir distancia
+  const distancia = (a, b) =>
+    Math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2);
+
+  // Busca el nodo más cercano a un punto
   const nodoMasCercano = (nodos, punto) =>
     nodos.reduce((min, n) =>
-      distancia(n.coords, [punto.lng, punto.lat]) < distancia(min.coords, [punto.lng, punto.lat]) ? n : min
+      distancia(n.coords, punto) < distancia(min.coords, punto) ? n : min
     );
 
-  const start = nodoMasCercano(nodosMedio, origen);
-  const end = nodoMasCercano(nodosAgua, origen);
+  const start = nodoMasCercano(nodosMedio, puntoXY);
+  const end = nodoMasCercano(nodosAgua, puntoXY);
 
-  const pasos = [start.coords];
+  // Trazar camino usando nodos vértices (simulado con búsqueda simple)
+  let pasos = [start.coords];
   let actual = start;
+  let intentos = 0;
 
-  for (let i = 0; i < 10; i++) {
-    const next = nodoMasCercano(nodosVertices, { lat: actual.coords[1], lng: actual.coords[0] });
-    pasos.push(next.coords);
-    if (distancia(next.coords, end.coords) < 0.0005) break;
-    actual = next;
+  while (distancia(actual.coords, end.coords) > 0.0004 && intentos < 30) {
+    const siguiente = nodoMasCercano(nodosVertices, actual.coords);
+    if (distancia(actual.coords, siguiente.coords) < 0.00005) break; // Evitar bucle
+    pasos.push(siguiente.coords);
+    actual = siguiente;
+    intentos++;
   }
+
   pasos.push(end.coords);
 
-  // Calcular distancia total
-  let distanciaMetros = 0;
-  for (let i = 0; i < pasos.length - 1; i++) {
-    distanciaMetros += distancia(pasos[i], pasos[i + 1]) * 111320;
-  }
+  // Dibujar la línea de cañería
+  if (rutaLayer) map.removeLayer(rutaLayer);
+  rutaLayer = L.polyline([], { color: "blue", weight: 4 }).addTo(map);
 
-  const costo = Math.round(distanciaMetros * 2500);
-
-  // Mostrar panel lateral
-  document.getElementById("caneriaPanel").style.display = "block";
-  document.getElementById("distanciaTotal").textContent = Math.round(distanciaMetros);
-  document.getElementById("costoTotal").textContent = costo;
-
-  // Dibujar animación de la línea
-  rutaLayer = L.polyline([pasos[0]], { color: 'blue', weight: 4 }).addTo(map);
-  let i = 1;
+  let i = 0;
   const interval = setInterval(() => {
-    if (i >= pasos.length) return clearInterval(interval);
+    if (i >= pasos.length) {
+      clearInterval(interval);
+      calcularCostoYPintar(pasos);
+      return;
+    }
     rutaLayer.addLatLng([pasos[i][1], pasos[i][0]]);
     i++;
-  }, 300);
-}
-
-// Botón para "Hacer cañería"
-document.getElementById("hacerCaneriaBtn").addEventListener("click", () => {
-  alert("✅ Cañería propuesta generada. Esto podría guardarse en base de datos o exportarse.");
+  }, 200);
 });
+
+// Calcula metros y costo estimado
+function calcularCostoYPintar(pasos) {
+  let total = 0;
+  for (let i = 0; i < pasos.length - 1; i++) {
+    total += turf.distance(
+      turf.point(pasos[i]),
+      turf.point(pasos[i + 1]),
+      { units: "kilometers" }
+    );
+  }
+
+  const metros = (total * 1000).toFixed(1);
+  const costo = (metros * 1800).toLocaleString("es-AR");
+
+  document.getElementById("distanciaTotal").textContent = metros;
+  document.getElementById("costoTotal").textContent = costo;
+}
