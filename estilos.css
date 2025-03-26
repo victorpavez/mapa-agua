@@ -69,15 +69,9 @@ html, body {
   margin-right: 6px;
 }
 
-.dot.red {
-  background-color: #e74c3c;
-}
+.dot.red { background-color: #e74c3c; }
+.dot.green { background-color: #2ecc71; }
 
-.dot.green {
-  background-color: #2ecc71;
-}
-
-/* Estilos para el panel de cañería */
 .caneria-panel {
   position: absolute;
   top: 20px;
@@ -89,14 +83,17 @@ html, body {
   width: 220px;
   z-index: 1001;
 }
+
 .caneria-panel h3 {
   margin-top: 0;
   font-size: 16px;
 }
+
 .caneria-panel p {
   margin: 8px 0;
   font-size: 14px;
 }
+
 .caneria-panel button {
   background: #2ecc71;
   color: white;
@@ -106,6 +103,7 @@ html, body {
   cursor: pointer;
   font-weight: bold;
 }
+
 .caneria-panel button:hover {
   background: #27ae60;
 }
