@@ -110,12 +110,6 @@
     let geojsonOriginal, geojsonLayer, capaAgua, rutaLayer;
     let nodosMedio = [], nodosAgua = [], nodosVertices = [];
 
-    async function cargarGeojson(nombre) {
-      const res = await fetch(nombre);
-      const data = await res.json();
-      return data.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
-    }
-
     fetch("AGUSIONO.geojson")
       .then(res => res.json())
       .then(data => {
@@ -124,14 +118,18 @@
       });
 
     Promise.all([
-      cargarGeojson("nodosmedio.geojson"),
-      cargarGeojson("nodosagua.geojson"),
-      cargarGeojson("NODOSVERTICES.geojson")
-    ]).then(([medio, agua, vertices]) => {
-      nodosMedio = medio;
-      nodosAgua = agua;
-      nodosVertices = vertices;
-    });
+      fetch("NODOSMEDIOS.geojson").then(res => res.json()),
+      fetch("NODOSAGUA.geojson").then(res => res.json()),
+      fetch("NODOSVERTICES.geojson").then(res => res.json()),
+    ]).then(([medios, aguas, vertices]) => {
+      nodosMedio = medios.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+      nodosAgua = aguas.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+      nodosVertices = vertices.features.map(f => ({ id: f.properties.id, coords: f.geometry.coordinates }));
+      console.log("✅ Nodos cargados correctamente");
+      console.log("Nodos Agua:", nodosAgua.length);
+      console.log("Nodos Medios:", nodosMedio.length);
+      console.log("Nodos Vértices:", nodosVertices.length);
+    }).catch(err => console.error("❌ Error al cargar nodos:", err));
 
     function actualizarMapa() {
       if (!geojsonOriginal) return;
@@ -236,7 +234,7 @@
 
       const pasos = [start.coords];
       let actual = start;
-      for (let i = 0; i < 10; i++) { // evitar bucle infinito
+      for (let i = 0; i < 10; i++) {
         const next = nodoMasCercano(nodosVertices, { lat: actual.coords[1], lng: actual.coords[0] });
         pasos.push(next.coords);
         if (distancia(next.coords, end.coords) < 0.0005) break;
@@ -252,21 +250,6 @@
         i++;
       }, 300);
     }
-
-    Promise.all([
-  fetch("NODOSAGUA.geojson").then(res => res.json()),
-  fetch("NODOSMEDIOS.geojson").then(res => res.json()),
-  fetch("NODOSVERTICES.geojson").then(res => res.json()),
-])
-.then(([nodosAgua, nodosMedios, nodosVertices]) => {
-  console.log("✅ Nodos cargados correctamente");
-  console.log("Nodos Agua:", nodosAgua.features.length);
-  console.log("Nodos Medios:", nodosMedios.features.length);
-  console.log("Nodos Vértices:", nodosVertices.features.length);
-})
-.catch(err => console.error("❌ Error al cargar nodos:", err));
-
   </script>
-  <script src="calculo_caneria_lote.js"></script>
 </body>
 </html>
