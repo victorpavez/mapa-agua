@@ -9,16 +9,43 @@ let geojsonOriginal, geojsonLayer, capaAgua, rutaLayer;
 let nodosAgua = [], nodosMedios = [], nodosVertices = [];
 let loteSeleccionado = null;
 
-// Cargar nodos desde GeoJSON
-Promise.all([
-  fetch("NODOSAGUA.geojson").then(res => res.json()),
-  fetch("NODOSMEDIOS.geojson").then(res => res.json()),
-  fetch("NODOSVERTICES.geojson").then(res => res.json()),
-]).then(([agua, medios, vertices]) => {
-  nodosAgua = agua.features.map(f => f.geometry.coordinates);
-  nodosMedios = medios.features.map(f => f.geometry.coordinates);
-  nodosVertices = vertices.features.map(f => f.geometry.coordinates);
-}).catch(err => console.error("Error cargando nodos:", err));
+// Función para cargar y mostrar nodos en el mapa
+function cargarYMostrarNodos(url, grupo, color) {
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      const nodos = data.features.map(f => f.geometry.coordinates);
+      L.geoJSON(data, {
+        pointToLayer: function (feature, latlng) {
+          return L.circleMarker(latlng, {
+            radius: 5,
+            fillColor: color,
+            color: color,
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.8
+          });
+        }
+      }).addTo(map);
+      switch (grupo) {
+        case 'agua':
+          nodosAgua = nodos;
+          break;
+        case 'medios':
+          nodosMedios = nodos;
+          break;
+        case 'vertices':
+          nodosVertices = nodos;
+          break;
+      }
+    })
+    .catch(err => console.error(`Error cargando nodos desde ${url}:`, err));
+}
+
+// Cargar y mostrar los nodos en el mapa
+cargarYMostrarNodos("NODOSAGUA.geojson", 'agua', 'blue');
+cargarYMostrarNodos("NODOSMEDIOS.geojson", 'medios', 'green');
+cargarYMostrarNodos("NODOSVERTICES.geojson", 'vertices', 'red');
 
 // Cargar y mostrar los lotes desde el GeoJSON
 fetch("AGUSIONO.geojson")
@@ -93,46 +120,6 @@ function seleccionarLote(layer, feature) {
     geojsonLayer.resetStyle(loteSeleccionado);
   }
   loteSeleccionado = layer;
-  layer.setStyle({ weight: 3, color: 'blue' });
 
-  document.getElementById("caneriaPanel").style.display = 'block';
-}
-
-// Función para generar la cañería desde el lote seleccionado
-function generarCaneria() {
-  if (!loteSeleccionado) return;
-
-  const centroLote = loteSeleccionado.getBounds().getCenter();
-  const nodoMedioCercano = encontrarNodoMasCercano(centroLote, nodosMedios);
-  const verticeCercano = encontrarNodoMasCercano(nodoMedioCercano, nodosVertices);
-  const nodoAguaCercano = encontrarNodoMasCercano(verticeCercano, nodosAgua);
-
-  const ruta = [centroLote, nodoMedioCercano, verticeCercano, nodoAguaCercano];
-  dibujarRuta(ruta);
-}
-
-// Función para encontrar el nodo más cercano a una coordenada dada
-function encontrarNodoMasCercano(coordenada, nodos) {
-  let distanciaMinima = Infinity;
-  let nodoMasCercano = null;
-  nodos.forEach(nodo => {
-    const distancia = map.distance(coordenada, L.latLng(nodo[1], nodo[0]));
-    if (distancia < distanciaMinima) {
-      distanciaMinima = distancia;
-      nodoMasCercano = L.latLng(nodo[1], nodo[0]);
-    }
-  });
-  return nodoMasCercano;
-}
-
-// Función para dibujar la ruta de la cañería en el mapa
-function dibujarRuta(ruta) {
-  if (rutaLayer) {
-    rutaLayer.remove();
-  }
-  rutaLayer = L.polyline(ruta, { color: 'blue', weight: 3 }).addTo(map);
-  const distanciaTotal = calcularDistancia(ruta);
-  const costoTotal = distanciaTotal * 1000; // Costo estimado por metro
-  document.getElementById("distanciaTotal").textContent = distanciaTotal
-::contentReference[oaicite:0]{index=0}
+::contentReference[oaicite:10]{index=10}
  
